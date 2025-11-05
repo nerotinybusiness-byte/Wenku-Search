@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wenku – AI Document Reader</title>
+  <link rel="stylesheet" href="/public/style.css" />
+</head>
+<body>
+  <canvas id="bg"></canvas>
+
+  <header class="topbar glass">
+    <div class="left">
+      <button id="themeToggle" aria-label="Přepnout motiv">🌓</button>
+    </div>
+    <div class="right">
+      <div class="settings">
+        <button id="btnSettings" title="Nastavení">⚙️</button>
+        <div id="settingsPanel" class="panel hidden">
+          <label>API Base URL
+            <input id="apiBase" value="/api" />
+          </label>
+          <label>Model
+            <select id="model">
+              <option value="local">local (bez LLM)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+              <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
+            </select>
+          </label>
+          <div class="hint">Gemini/OpenAI vyžadují klíč v ENV na serveru.</div>
+        </div>
+      </div>
+      <img src="https://dummyimage.com/120x36/B3D334/000&text=Wenku" alt="Wenku" class="logo" />
+    </div>
+  </header>
+
+  <main class="grid">
+    <aside class="pane glass">
+      <h2>Nahrát dokument</h2>
+      <input id="file" type="file" accept=".pdf,.docx,.txt,.md" />
+      <button id="uploadBtn">Nahrát</button>
+      <div id="uploadInfo" class="muted"></div>
+    </aside>
+
+    <section class="results glass">
+      <h2>Výsledky</h2>
+      <div id="feed"></div>
+    </section>
+  </main>
+
+  <footer class="chat glass">
+    <input id="q" placeholder="Zeptej se na obsah dokumentu…" />
+    <button id="askBtn">Zeptat se</button>
+  </footer>
+
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script type="module" src="/public/api.js"></script>
+  <script type="module" src="/public/script.js"></script>
+</body>
+</html>

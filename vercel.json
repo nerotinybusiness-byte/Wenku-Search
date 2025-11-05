@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "functions": {
+    "api/*.js": {
+      "runtime": "nodejs20.x",
+      "memory": 1024,
+      "maxDuration": 20
+    }
+  },
+  "routes": [
+    { "src": "^/$", "dest": "/public/index.html" },
+    { "src": "^/public/(.*)$", "dest": "/public/$1" },
+    { "src": "^/style.css$", "dest": "/public/style.css" },
+    { "src": "^/script.js$", "dest": "/public/script.js" },
+    { "src": "^/api.js$", "dest": "/public/api.js" }
+  ]
+}
