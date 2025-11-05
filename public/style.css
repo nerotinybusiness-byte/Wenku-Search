@@ -13,26 +13,41 @@
 html,body{height:100%}
 *{box-sizing:border-box}
 body{
-  margin:0; background:var(--bg); color:var(--text); font:16px/1.5 Inter,system-ui,Segoe UI,Arial,sans-serif; overflow:hidden;
+  margin:0; background:var(--bg); color:var(--text);
+  font:16px/1.5 Inter,system-ui,Segoe UI,Arial,sans-serif;
+  overflow:hidden;
 }
 #bg{position:fixed; inset:0; z-index:0; display:block}
+
+/* liquid glass */
 .glass{
-  background:var(--glass-bg); backdrop-filter:blur(var(--glass-blur));
-  border:1px solid var(--border); border-radius:var(--radius-outer);
-  box-shadow:0 10px 30px rgba(0,0,0,.3);
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--border);
+  border-radius:var(--radius-outer);
+  box-shadow:0 12px 38px rgba(0,0,0,.35);
 }
+
+/* top bar */
 .topbar{
-  position:fixed; inset:16px 16px auto 16px; height:56px; padding:8px 12px; z-index:2; display:flex; align-items:center; justify-content:space-between;
+  position:fixed; inset:16px 16px auto 16px; height:56px;
+  padding:8px 12px; z-index:2; display:flex; align-items:center; justify-content:space-between;
 }
 .topbar .logo{height:32px; border-radius:8px}
 .topbar .right{display:flex; align-items:center; gap:12px}
 .topbar .left{display:flex; align-items:center; gap:8px}
 #themeToggle,#btnSettings,#uploadBtn,#askBtn{
-  border:1px solid var(--border); background:#0f1318; color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer;
+  border:1px solid var(--border); background:#0f1318; color:var(--text);
+  padding:10px 14px; border-radius:12px; cursor:pointer;
+  box-shadow:0 6px 18px rgba(0,0,0,.25);
 }
 #btnSettings{padding:8px 10px}
+
+/* settings panel */
 .panel{
-  position:absolute; right:16px; top:60px; width:320px; padding:12px; background:var(--card); border:1px solid var(--border); border-radius:16px;
+  position:absolute; right:16px; top:60px; width:320px; padding:12px;
+  background:var(--card); border:1px solid var(--border); border-radius:16px;
 }
 .panel.hidden{display:none}
 .panel label{display:block; font-size:14px; color:var(--muted); margin-bottom:10px}
@@ -41,29 +56,51 @@ body{
 }
 .panel .hint{font-size:12px; color:var(--muted)}
 
+/* main grid */
 .grid{
-  position:fixed; top:88px; bottom:80px; left:16px; right:16px; display:grid; grid-template-columns:340px 1fr; gap:16px; z-index:1;
+  position:fixed; top:88px; bottom:96px; left:16px; right:16px;
+  display:grid; grid-template-columns:340px 1fr; gap:16px; z-index:1;
 }
 .pane{padding:16px}
-.results{padding:16px; overflow:auto}
+.results{padding:16px; overflow:auto; scrollbar-width:thin}
 #feed{display:flex; flex-direction:column; gap:12px}
 .card{
-  background:#0f1318; border:1px solid var(--border); border-radius:var(--radius-inner); padding:14px; box-shadow:0 8px 20px rgba(0,0,0,.25);
+  background:#0f1318; border:1px solid var(--border); border-radius:var(--radius-inner);
+  padding:14px; box-shadow:0 8px 20px rgba(0,0,0,.25);
 }
+.card b, .card strong{color:var(--brand)}
 .badges{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap}
 .badge{
-  display:inline-block; font-size:12px; color:#0b0d10; background:var(--brand); border-radius:999px; padding:4px 8px;
+  display:inline-block; font-size:12px; color:#0b0d10; background:var(--brand);
+  border-radius:999px; padding:4px 8px;
 }
 .badge[title]{cursor:help}
 .muted{color:var(--muted)}
+
+/* chat bottom – CENTERED like ChatGPT */
 .chat{
-  position:fixed; left:16px; right:16px; bottom:16px; height:56px; padding:8px; display:flex; gap:8px; align-items:center; z-index:2;
+  position:fixed; left:0; right:0; bottom:16px; height:auto;
+  z-index:2; display:flex; justify-content:center; pointer-events:none;
+}
+.chat-inner{
+  width:min(920px, 90vw); display:flex; gap:8px; align-items:center;
+  background:var(--glass-bg); border:1px solid var(--border); border-radius:16px; padding:8px;
+  -webkit-backdrop-filter:blur(var(--glass-blur)); backdrop-filter:blur(var(--glass-blur));
+  box-shadow:0 12px 32px rgba(0,0,0,.35);
+  pointer-events:auto;
 }
 .chat input{
-  flex:1; height:40px; border-radius:12px; border:1px solid var(--border); background:#0f1318; color:var(--text); padding:0 12px;
+  flex:1; height:44px; border-radius:12px; border:1px solid var(--border);
+  background:#0f1318; color:var(--text); padding:0 12px; outline:none;
+}
+.chat button{
+  height:44px; padding:0 16px; border-radius:12px; border:1px solid var(--border);
+  background:var(--brand); color:#0b0d10; font-weight:600; cursor:pointer;
+  box-shadow:0 6px 18px rgba(179,211,52,.35);
 }
 
-/* Light theme (toggle) */
+/* Light theme */
 body.light{
   --bg:#f7f9fc; --text:#0b0d10; --muted:#3f4953; --glass-bg:rgba(255,255,255,0.7); --border:rgba(0,0,0,0.08);
+  --card:#ffffff;
 }

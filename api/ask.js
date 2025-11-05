@@ -1,121 +1,88 @@
 // api/ask.js
-import { getSession } from "../lib/store.js";
-import { rankBM25, pickExcerpts } from "../lib/retriever.js";
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const OpenAI = require("openai");
+const { getSession } = require("../lib/store");
+const { rankBM25, pickExcerpts } = require("../lib/retriever");
 
-const SYS_PROMPT = `Jsi vyhledávač odpovědí z dodaného dokumentu.
-Odpovídej pouze z pasáží, které ti pošlu. Když informace v pasážích nejsou, řekni stručně česky: "V dokumentu k tomu nejsou informace."
-Odpovědi dávej stručně (2–5 vět), věcně, bez omáčky. Na konec vracej JSON "citations":[{page,excerpt}].`;
-
-async function callLLM({ provider, model, apiKey, question, context }) {
-  // "Local" režim: extraktivní shrnutí bez volání LLM – minimalizuje halucinace
-  if (provider === "local" || !apiKey) {
-    // Vezmeme první 2–3 pasáže a uděláme jednoduchý heuristický "extrakt"
-    const top = context.slice(0, 3).map(c => c.text).join("\n\n");
-    // Zjednodušené: vrátíme nejvýstižnější věty (split tečky, vyber prvních 3–5, které obsahují slova z dotazu)
-    const terms = question.toLowerCase().split(/\W+/).filter(Boolean);
-    const sentences = top.split(/(?<=[\.\?\!])\s+/).filter(s => s.trim().length > 0);
-    const scored = sentences
-      .map(s => {
-        const l = s.toLowerCase();
-        const score = terms.reduce((acc, t) => acc + (l.includes(t) ? 1 : 0), 0) + Math.min(s.length / 200, 1);
-        return { s: s.trim(), score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 4)
-      .map(o => o.s);
-    return scored.length ? scored.join(" ") : "V dokumentu k tomu nejsou informace.";
-  }
-
-  if (provider === "openai") {
-    const body = {
-      model: model || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: SYS_PROMPT },
-        { role: "user", content: `Otázka: ${question}\n\nPasáže:\n${context.map((c, i) => `#${i+1} [str. ${c.pageStart+1}-${c.pageEnd+1}]\n${c.text}`).join("\n\n")}` }
-      ],
-      temperature: 0.1
-    };
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    const j = await r.json();
-    return j.choices?.[0]?.message?.content?.trim() || "V dokumentu k tomu nejsou informace.";
-  }
-
-  if (provider === "gemini") {
-    const gbody = {
-      contents: [{
-        role: "user",
-        parts: [{ text: `${SYS_PROMPT}\n\nOtázka: ${question}\n\nPasáže:\n${context.map((c, i) => `#${i+1} [str. ${c.pageStart+1}-${c.pageEnd+1}]\n${c.text}`).join("\n\n")}` }]
-      }],
-      generationConfig: { temperature: 0.1 }
-    };
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model || "gemini-1.5-flash"}:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(gbody)
-    });
-    const j = await r.json();
-    return j?.candidates?.[0]?.content?.parts?.map(p => p.text).join("").trim() || "V dokumentu k tomu nejsou informace.";
-  }
-
-  return "V dokumentu k tomu nejsou informace.";
+function llmProvider(model) {
+  const useGemini = process.env.GEMINI_API_KEY && (!model || model.startsWith("gemini"));
+  const useOpenAI = process.env.OPENAI_API_KEY && model && model.startsWith("gpt");
+  if (useGemini) return "gemini";
+  if (useOpenAI) return "openai";
+  if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  return "local";
 }
 
-function parseCitationsFromLLM(text, fallbackCites) {
-  // Očekáváme, že LLM nic nevymýšlí; i tak se radši opřeme o retriever
-  // Vynutíme citace z fallbacku (top pasáže), ale respektujeme požadavek: 1-based page + excerpt <= ~200 znaků
-  return fallbackCites;
+async function askGemini({ prompt, model = "gemini-1.5-flash" }) {
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const m = genAI.getGenerativeModel({ model });
+  const res = await m.generateContent([{ text: prompt }]);
+  return res.response.text();
 }
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" }); return;
-  }
+async function askOpenAI({ prompt, model = "gpt-4o-mini" }) {
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const res = await client.chat.completions.create({
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.2
+  });
+  return res.choices?.[0]?.message?.content ?? "";
+}
+
+function buildPrompt(q, topChunks) {
+  const context = topChunks
+    .map((c, i) => `[#${i + 1} | page ${c.pageStart + 1}]\n${c.text}`)
+    .join("\n\n-----\n\n");
+  return `You are a precise assistant. Answer strictly from CONTEXT. If information is missing, say you don't know and suggest where to look in the document.\n\nQUESTION:\n${q}\n\nCONTEXT:\n${context}\n\nAnswer in Czech, concise, with bullet points if helpful.`;
+}
+
+async function handleAsk(req, res) {
   try {
-    const { sessionId, q } = await parseJson(req);
-    if (!sessionId || !q) {
-      res.status(400).json({ error: "Chybí sessionId nebo q." }); return;
+    const { sessionId, q, model } = req.body || {};
+    if (!sessionId || typeof sessionId !== "string") {
+      return res.status(400).json({ error: "Missing 'sessionId'." });
     }
-    const s = getSession(sessionId);
-    if (!s) { res.status(404).json({ error: "Session nenalezena." }); return; }
+    if (!q || typeof q !== "string" || q.trim().length === 0) {
+      return res.status(400).json({ error: "Missing 'q' question." });
+    }
 
-    // BM25 ranking
-    const ranked = rankBM25(q, s.chunks).slice(0, 5);
-    const excerpts = pickExcerpts(q, ranked, s.pages);
+    const session = getSession(sessionId);
+    if (!session || !Array.isArray(session.chunks) || !Array.isArray(session.pages)) {
+      return res.status(404).json({ error: "Session not found. Upload a document first." });
+    }
 
-    // LLM
-    const provider = process.env.WENKU_MODEL?.startsWith("gemini") ? "gemini"
-                   : process.env.WENKU_MODEL?.startsWith("gpt") ? "openai"
-                   : (process.env.WENKU_MODEL === "local" || !process.env.WENKU_MODEL) ? "local" : "local";
+    // RAG – vyber top chunky z BM25
+    const ranked = rankBM25(q, session.chunks);
+    const topChunks = ranked.slice(0, 5);
+    const citations = pickExcerpts(q, ranked, session.pages).map(x => ({
+      page: (x.page ?? 0) + 1, // 1-based pro UI
+      excerpt: x.excerpt
+    }));
 
-    const apiKey = provider === "gemini" ? process.env.GEMINI_API_KEY
-                : provider === "openai" ? process.env.OPENAI_API_KEY
-                : undefined;
+    // Vytvoř prompt a zavolej LLM
+    const prompt = buildPrompt(q, topChunks);
+    const provider = llmProvider(model);
 
-    const answer = await callLLM({
-      provider,
-      model: process.env.WENKU_MODEL || "local",
-      apiKey,
-      question: q,
-      context: ranked
+    if (provider === "gemini") {
+      const answer = await askGemini({ prompt, model });
+      return res.json({ answer, citations });
+    }
+    if (provider === "openai") {
+      const answer = await askOpenAI({ prompt, model });
+      return res.json({ answer, citations });
+    }
+
+    // fallback local
+    return res.json({
+      answer: "Nemám přístup k LLM (chybí GEMINI_API_KEY/OPENAI_API_KEY). Přidej klíč do ENV.",
+      citations
     });
-
-    // Citace (vždy 1-based page + krátký výňatek)
-    const citations = excerpts.map(e => ({ page: e.page + 1, excerpt: e.excerpt }));
-
-    res.json({ answer, citations });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "Dotaz selhal." });
+    console.error("ASK ERROR:", e);
+    res.status(500).json({ error: "LLM call failed." });
   }
 }
 
-async function parseJson(req) {
-  const chunks = [];
-  for await (const c of req) chunks.push(c);
-  const raw = Buffer.concat(chunks).toString("utf8");
-  try { return JSON.parse(raw || "{}"); } catch { return {}; }
-}
+module.exports = { handleAsk };

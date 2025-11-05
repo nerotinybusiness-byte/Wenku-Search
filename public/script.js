@@ -16,8 +16,8 @@ const modelSel = document.getElementById("model");
 
 let sessionId = null;
 
-// Theme switch
-(function initTheme(){
+// Theme
+(function initTheme() {
   const stored = localStorage.getItem("wenku.theme") || "dark";
   document.body.classList.toggle("light", stored === "light");
 })();
@@ -34,24 +34,22 @@ modelSel.value = cfg.model;
 apiBase.onchange = () => setCfg("apiBase", apiBase.value.trim() || "/api");
 modelSel.onchange = () => setCfg("model", modelSel.value);
 
-// Load server settings
-getSettings().then(s => {
-  // pokud server nemá klíče, ponecháme local
-}).catch(()=>{});
+// Server capabilities (info only)
+getSettings().catch(() => {});
 
 // Upload
 uploadBtn.onclick = async () => {
   const f = fileInput.files?.[0];
   if (!f) { alert("Vyber soubor."); return; }
   uploadBtn.disabled = true;
-  try{
+  try {
     const r = await uploadDocument(f);
     sessionId = r.sessionId;
     uploadInfo.textContent = `Nahráno. Stran: ${r.pages}.`;
     pushCard("✅ Dokument nahrán.", []);
-  }catch(e){
+  } catch {
     pushCard("❌ Upload selhal.", []);
-  }finally{
+  } finally {
     uploadBtn.disabled = false;
   }
 };
@@ -59,25 +57,24 @@ uploadBtn.onclick = async () => {
 // Ask
 askBtn.onclick = doAsk;
 qInput.addEventListener("keydown", e => { if (e.key === "Enter") doAsk(); });
-
-async function doAsk(){
+async function doAsk() {
   const q = (qInput.value || "").trim();
   if (!q) return;
   if (!sessionId) { alert("Nejdřív nahraj dokument."); return; }
   askBtn.disabled = true;
   pushCard(`❓ ${escapeHtml(q)}`, []);
-  try{
+  try {
     const r = await askQuestion(sessionId, q);
-    pushCard(escapeHtml(r.answer), r.citations || []);
-  }catch(e){
+    pushCard(escapeHtml(r.answer || ""), r.citations || []);
+  } catch {
     pushCard("❌ Dotaz selhal.", []);
-  }finally{
+  } finally {
     askBtn.disabled = false;
     qInput.value = "";
   }
 }
 
-function pushCard(text, citations){
+function pushCard(text, citations) {
   const el = document.createElement("div");
   el.className = "card";
   el.innerHTML = `<div>${text}</div>`;
@@ -87,7 +84,7 @@ function pushCard(text, citations){
     for (const c of citations) {
       const b = document.createElement("span");
       b.className = "badge";
-      b.title = (c.excerpt || "").slice(0, 200);
+      b.title = (c.excerpt || "").slice(0, 240);
       b.textContent = `str. ${c.page}`;
       row.appendChild(b);
     }
@@ -95,36 +92,35 @@ function pushCard(text, citations){
   }
   feed.prepend(el);
 }
+function escapeHtml(s) { return s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
 
-function escapeHtml(s){ return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
-// Three.js – jednoduché bubliny bez míchání barev (MeshBasicMaterial)
-(function bubbles(){
+// Three.js – jemné bubliny
+(function bubbles() {
   const renderer = new THREE.WebGLRenderer({ canvas: bg, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.NoToneMapping;
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.position.z = 10;
 
   const spheres = [];
-  const mat = new THREE.MeshBasicMaterial({ color: 0xB3D334, transparent: true, opacity: 0.12 });
-  for (let i=0;i<28;i++){
-    const geo = new THREE.SphereGeometry(Math.random()*0.8+0.4, 24, 24);
-    const m = new THREE.Mesh(geo, mat.clone());
-    m.position.set((Math.random()-0.5)*16, (Math.random()-0.5)*10, (Math.random()-0.5)*4);
+  for (let i = 0; i < 28; i++) {
+    const geo = new THREE.SphereGeometry(Math.random() * 0.8 + 0.4, 24, 24);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xB3D334, transparent: true, opacity: 0.11 });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set((Math.random() - 0.5) * 16, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 4);
     scene.add(m); spheres.push(m);
   }
-  function animate(){
+  function animate() {
     requestAnimationFrame(animate);
-    spheres.forEach((s, i) => { s.rotation.x += 0.0008*(i%5+1); s.rotation.y += 0.0012*(i%7+1); });
+    spheres.forEach((s, i) => { s.rotation.x += 0.0008 * (i % 5 + 1); s.rotation.y += 0.0012 * (i % 7 + 1); });
     renderer.render(scene, camera);
   }
   animate();
   window.addEventListener("resize", () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
-    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
   });
 })();

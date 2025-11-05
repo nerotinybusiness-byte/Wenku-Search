@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wenku – AI Document Reader</title>
-  <!-- 💡 relativní cesta, ne /public/... -->
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -23,9 +22,9 @@
           </label>
           <label>Model
             <select id="model">
-              <option value="local">local (bez LLM)</option>
               <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
               <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
+              <option value="local">local (bez LLM)</option>
             </select>
           </label>
           <div class="hint">Gemini/OpenAI vyžadují klíč v ENV na serveru.</div>
@@ -50,12 +49,13 @@
   </main>
 
   <footer class="chat glass">
-    <input id="q" placeholder="Zeptej se na obsah dokumentu…" />
-    <button id="askBtn">Zeptat se</button>
+    <div class="chat-inner">
+      <input id="q" placeholder="Zeptej se na obsah dokumentu…" />
+      <button id="askBtn">Zeptat se</button>
+    </div>
   </footer>
 
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <!-- 💡 relativní cesty, ne /public/... -->
   <script type="module" src="./api.js"></script>
   <script type="module" src="./script.js"></script>
 </body>
