@@ -15,33 +15,50 @@ function llmProvider(model) {
   return "local";
 }
 
-// GEMINI (API v1 + fallbacky názvů)
+// GEMINI přes REST v1 (obejití v1beta bugů SDK)
 async function askGemini({ prompt, model = "gemini-1.5-flash-latest" }) {
-  // normalize: bez 'models/' prefixu
-  const name = (model || "gemini-1.5-flash-latest").replace(/^models\//, "");
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY missing");
 
-  // vynutíme API v1 (u starších buildů jinak padá na v1beta)
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY, { apiVersion: "v1" });
+  // normalizace + fallbacky
+  const asked = (model || "gemini-1.5-flash-latest").replace(/^models\//, "");
+  const candidates = asked.includes("flash")
+    ? [asked, "gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-1.5-flash-8b"]
+    : [asked, "gemini-1.5-pro", "gemini-1.5-pro-001", "gemini-1.5-pro-latest"];
 
-  // primární pokus
-  try {
-    const m = genAI.getGenerativeModel({ model: name });
-    const res = await m.generateContent(prompt); // posíláme string
-    return res.response.text();
-  } catch (e) {
-    // fallbacky podle variant, které jsou typicky povolené
-    const alternates = name.includes("flash")
-      ? ["gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-1.5-flash-8b"]
-      : ["gemini-1.5-pro", "gemini-1.5-pro-001", "gemini-1.5-pro-latest"];
-    for (const alt of alternates) {
-      try {
-        const m2 = genAI.getGenerativeModel({ model: alt });
-        const r2 = await m2.generateContent(prompt);
-        return r2.response.text();
-      } catch {}
+  const body = {
+    contents: [
+      { role: "user", parts: [{ text: prompt }] }
+    ]
+  };
+
+  for (const m of candidates) {
+    const url = `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(m)}:generateContent?key=${key}`;
+    try {
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        console.warn("[Gemini REST] fail", m, resp.status, resp.statusText, t.slice(0, 160));
+        continue;
+      }
+
+      const json = await resp.json();
+      const text =
+        json.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("")?.trim() || "";
+
+      if (text) return text;
+      console.warn("[Gemini REST] empty text", m, JSON.stringify(json).slice(0, 160));
+    } catch (e) {
+      console.warn("[Gemini REST] error", m, e?.message || e);
     }
-    throw e;
   }
+
+  throw new Error("All Gemini REST candidates failed");
 }
 
 // OPENAI
