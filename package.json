@@ -1,11 +1,10 @@
-{
+﻿{
   "name": "wenku",
   "private": true,
   "engines": { "node": ">=20" },
   "scripts": {
     "start": "node api/server.js",
-    "build": "echo \"No build step\"",
-    "render-build": "npm ci || true"  // Render si volá buildCommand; ať nepadá
+    "build": "echo \"no build step\""
   },
   "dependencies": {
     "compression": "^1.7.4",
