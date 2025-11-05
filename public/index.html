@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wenku – AI Document Reader</title>
-  <link rel="stylesheet" href="/public/style.css" />
+  <!-- 💡 relativní cesta, ne /public/... -->
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <canvas id="bg"></canvas>
@@ -54,7 +55,8 @@
   </footer>
 
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script type="module" src="/public/api.js"></script>
-  <script type="module" src="/public/script.js"></script>
+  <!-- 💡 relativní cesty, ne /public/... -->
+  <script type="module" src="./api.js"></script>
+  <script type="module" src="./script.js"></script>
 </body>
 </html>
