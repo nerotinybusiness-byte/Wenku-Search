@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: wenku
+    env: node
+    plan: free
+    region: frankfurt
+    buildCommand: "npm install --production"
+    startCommand: "node api/server.js"
+    healthCheckPath: "/api/settings"
+    envVars:
+      - key: WENKU_MODEL
+        value: local
+    routes:
+      - type: rewrite
+        source: "^/$"
+        destination: "/public/index.html"
+      - type: static
+        source: "/public"
+        destination: "/"

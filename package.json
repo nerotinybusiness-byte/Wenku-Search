@@ -1,15 +1,14 @@
 {
   "name": "wenku",
-  "version": "1.0.0",
-  "type": "module",
   "private": true,
+  "engines": { "node": ">=20" },
   "scripts": {
-    "dev": "vercel dev",
-    "start": "node server.js"
+    "start": "node api/server.js",
+    "build": "echo \"No build step\"",
+    "render-build": "npm ci || true"  // Render si volá buildCommand; ať nepadá
   },
   "dependencies": {
-    "formidable": "^3.5.1",
-    "mammoth": "^1.6.0",
-    "pdf-parse": "^1.1.1"
+    "compression": "^1.7.4",
+    "express": "^4.19.2"
   }
 }
