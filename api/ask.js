@@ -14,12 +14,35 @@ function llmProvider(model) {
   return "local";
 }
 
-async function askGemini({ prompt, model = "models/gemini-1.5-flash" }) {
+// nahoře nech vše jak je…
+
+async function askGemini({ prompt, model = "gemini-1.5-flash" }) {
+  // 🔧 normalize názvu (bez 'models/')
+  const name = (model || "gemini-1.5-flash").replace(/^models\//, "");
+
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const m = genAI.getGenerativeModel({ model: model.startsWith("models/") ? model : `models/${model}` });
-  const res = await m.generateContent([{ text: prompt }]);
-  return res.response.text();
+
+  // Primární pokus (1.5-flash)
+  try {
+    const m = genAI.getGenerativeModel({ model: name });
+    const res = await m.generateContent([{ text: prompt }]);
+    return res.response.text();
+  } catch (e) {
+    // Fallbacky pro různé release tagy
+    const alternates = name.includes("flash")
+      ? ["gemini-1.5-flash-latest", "gemini-1.5-flash-8b"]
+      : ["gemini-1.5-pro", "gemini-1.5-pro-latest"];
+    for (const alt of alternates) {
+      try {
+        const m2 = genAI.getGenerativeModel({ model: alt });
+        const r2 = await m2.generateContent([{ text: prompt }]);
+        return r2.response.text();
+      } catch {}
+    }
+    throw e;
+  }
 }
+
 
 async function askOpenAI({ prompt, model = "gpt-4o-mini" }) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
