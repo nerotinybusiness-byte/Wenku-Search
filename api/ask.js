@@ -1,5 +1,5 @@
 // api/ask.js
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require("@google/generative-ai"); // jen kvůli typům; voláme REST
 const OpenAI = require("openai");
 const { getSession } = require("../lib/store");
 const { rankBM25, pickExcerpts } = require("../lib/retriever");
@@ -15,49 +15,54 @@ function llmProvider(model) {
   return "local";
 }
 
-// GEMINI přes REST v1 (obejití v1beta bugů SDK)
+/**
+ * GEMINI přes REST v1 (obejití v1beta bugů SDK)
+ * - normalizace názvu modelu
+ * - fallbacky (flash/pro varianty)
+ * - dual-path (v1/models/<id>:... i v1/models/<name> s prefixem)
+ */
 async function askGemini({ prompt, model = "gemini-1.5-flash-latest" }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY missing");
 
-  // normalizace + fallbacky
-  const asked = (model || "gemini-1.5-flash-latest").replace(/^models\//, "");
-  const candidates = asked.includes("flash")
-    ? [asked, "gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-1.5-flash-8b"]
-    : [asked, "gemini-1.5-pro", "gemini-1.5-pro-001", "gemini-1.5-pro-latest"];
+  const base = (model || "gemini-1.5-flash-latest").replace(/^models\//, "");
+  const bases = base.includes("flash")
+    ? [base, "gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-1.5-flash-8b"]
+    : [base, "gemini-1.5-pro", "gemini-1.5-pro-001", "gemini-1.5-pro-latest"];
 
   const body = {
-    contents: [
-      { role: "user", parts: [{ text: prompt }] }
-    ]
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
   };
 
-  for (const m of candidates) {
-    const url = `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(m)}:generateContent?key=${key}`;
-    try {
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!resp.ok) {
-        const t = await resp.text();
-        console.warn("[Gemini REST] fail", m, resp.status, resp.statusText, t.slice(0, 160));
-        continue;
+  for (const id of bases) {
+    const tries = [
+      // A) bez prefixu v cestě
+      `https://generativelanguage.googleapis.com/v1/models/${encodeURIComponent(id)}:generateContent?key=${key}`,
+      // B) s prefixem "models/" v názvu
+      `https://generativelanguage.googleapis.com/v1/${encodeURIComponent("models/" + id)}:generateContent?key=${key}`,
+    ];
+    for (const url of tries) {
+      try {
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          console.warn("[Gemini REST] fail", url, resp.status, resp.statusText, t.slice(0, 180));
+          continue;
+        }
+        const json = await resp.json();
+        const text =
+          json.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("")?.trim() || "";
+        if (text) return text;
+        console.warn("[Gemini REST] empty text", url, JSON.stringify(json).slice(0, 200));
+      } catch (e) {
+        console.warn("[Gemini REST] error", url, e?.message || e);
       }
-
-      const json = await resp.json();
-      const text =
-        json.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("")?.trim() || "";
-
-      if (text) return text;
-      console.warn("[Gemini REST] empty text", m, JSON.stringify(json).slice(0, 160));
-    } catch (e) {
-      console.warn("[Gemini REST] error", m, e?.message || e);
     }
   }
-
   throw new Error("All Gemini REST candidates failed");
 }
 
@@ -67,7 +72,7 @@ async function askOpenAI({ prompt, model = "gpt-4o-mini" }) {
   const res = await client.chat.completions.create({
     model,
     messages: [{ role: "user", content: prompt }],
-    temperature: 0.2
+    temperature: 0.2,
   });
   return res.choices?.[0]?.message?.content ?? "";
 }
@@ -110,7 +115,7 @@ async function handleAsk(req, res) {
     const topChunks = ranked.slice(0, 5);
     const citations = pickExcerpts(q, ranked, session.pages).map(x => ({
       page: (x.page ?? 0) + 1, // 1-based pro UI
-      excerpt: x.excerpt
+      excerpt: x.excerpt,
     }));
 
     const prompt = buildPrompt(q, topChunks);
@@ -128,7 +133,7 @@ async function handleAsk(req, res) {
     // fallback local (bez LLM)
     return res.json({
       answer: "Nemám přístup k LLM (chybí GEMINI_API_KEY/OPENAI_API_KEY). Přidej klíč do ENV.",
-      citations
+      citations,
     });
   } catch (e) {
     console.error("ASK ERROR:", e);

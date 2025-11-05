@@ -18,6 +18,21 @@ const fs = require("fs");
 const tmpPath = path.join(__dirname, "..", ".tmp");
 if (!fs.existsSync(tmpPath)) fs.mkdirSync(tmpPath);
 
+app.get("/api/models", async (_req, res) => {
+  try {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return res.status(400).json({ error: "GEMINI_API_KEY missing" });
+    const url = `https://generativelanguage.googleapis.com/v1/models?key=${key}`;
+    const r = await fetch(url);
+    const j = await r.json();
+    res.json(j);
+  } catch (e) {
+    console.error("ListModels error:", e);
+    res.status(500).json({ error: "ListModels failed" });
+  }
+});
+
+
 // ⚙️ statika
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 app.set("etag", false);
