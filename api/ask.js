@@ -14,9 +14,9 @@ function llmProvider(model) {
   return "local";
 }
 
-async function askGemini({ prompt, model = "gemini-1.5-flash" }) {
+async function askGemini({ prompt, model = "models/gemini-1.5-flash" }) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const m = genAI.getGenerativeModel({ model });
+  const m = genAI.getGenerativeModel({ model: model.startsWith("models/") ? model : `models/${model}` });
   const res = await m.generateContent([{ text: prompt }]);
   return res.response.text();
 }
