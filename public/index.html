@@ -18,8 +18,9 @@
     </header>
 
     <!-- SETTINGS PANEL -->
-    <div id="settingsPanel" class="settings-panel hidden" role="dialog" aria-modal="true">
+    <div id="settingsPanel" class="settings-panel hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="panel-inner">
+        <h3 id="settingsTitle" class="panel-title">Nastavení</h3>
         <div class="row">
           <label for="apiBase">API Base URL</label>
           <input id="apiBase" type="text" placeholder="/api" />
@@ -52,6 +53,13 @@
         <div class="side-header">
           <h2>Dokumenty na výběr</h2>
           <button id="addDocBtn" class="btn icon" title="Přidat dokument">➕</button>
+        </div>
+
+        <!-- Aktuální výběr pro multi-read -->
+        <div id="selectionBar" class="selection hidden" aria-live="polite">
+          <span class="muted small">Dotazovat v:</span>
+          <div id="selectionPills" class="pills"></div>
+          <button id="clearSel" class="btn xs" title="Zrušit výběr">Vymazat</button>
         </div>
 
         <ul id="docList" class="doc-list"></ul>
