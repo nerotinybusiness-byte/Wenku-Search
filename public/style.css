@@ -136,21 +136,22 @@ body{
 .settings-panel{
   position:fixed; inset:0; z-index:1000;
   display:grid; place-items:center;
-  background:rgba(0,0,0,.36);
+  background:rgba(0,0,0,.55);
   backdrop-filter: blur(22px) saturate(110%);
   -webkit-backdrop-filter: blur(22px) saturate(110%);
 }
 .settings-panel.hidden{ display:none }
 
+/* DARK: plně čitelný neprůhledný panel */
 .panel-inner{
   width:min(540px, 92vw);
   border:1px solid var(--border);
   border-radius:16px; padding:16px 16px 14px;
-  background:var(--glass-strong);
+  background:#171a1f; /* <- fix: žádné prosvítání obsahu pod ním */
   box-shadow: var(--shadow-lg), 0 0 40px rgba(179,211,52,.10);
 }
 .neon-day .panel-inner{
-  background: #ffffffea; /* čitelná bílá */
+  background:#ffffff; /* čistá bílá pro čitelnost */
   border-color: rgba(0,0,0,.10);
   box-shadow: var(--shadow-lg);
 }
@@ -159,12 +160,12 @@ body{
 .row label{ font-size:13px; color:var(--muted) }
 .row input,.row select{
   border:1px solid var(--border);
-  background:rgba(255,255,255,.05);
+  background:#0f1115; /* tmavší vstup na dark */
   color:inherit;
   padding:10px 12px; border-radius:10px;
 }
 .neon-day .row input, .neon-day .row select{
-  background:#ffffff; border-color:rgba(0,0,0,.12);
+  background:#f7f9fc; border-color:rgba(0,0,0,.12);
   color:#0d1117;
 }
 .row input:focus,.row select:focus{
@@ -180,7 +181,7 @@ body{
 .sidebar{ border-right:1px solid var(--border); padding:14px; min-height:0 }
 .side-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px }
 
-/* Scope bar (Dotazovat v:) – pevná mřížka drží „Vymazat“ uvnitř vpravo */
+/* Scope bar (Dotazovat v:) – mřížka drží „Vymazat“ vpravo uvnitř */
 #scopeBar{
   display:grid;
   grid-template-columns: auto 1fr auto; /* label | chips | button */
@@ -195,7 +196,18 @@ body{
 #scopeBar *{ min-width:0 }
 #scopeBar .scope-label{ color:var(--muted); font-size:13px; white-space:nowrap }
 #scopeChips{ display:flex; flex-wrap:wrap; gap:8px; min-width:0 }
-#scopeClear{ justify-self:end; white-space:nowrap }
+
+/* "Vymazat" – větší klik zóna a jasný vzhled */
+#scopeClear{
+  justify-self:end; white-space:nowrap;
+  padding:6px 10px; border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.04);
+  transition: transform .12s, background .12s;
+}
+#scopeClear:hover{ background:rgba(255,255,255,.08); transform:translateY(-1px) }
+.neon-day #scopeClear{ background:rgba(0,0,0,.04); border-color:rgba(0,0,0,.12) }
+.neon-day #scopeClear:hover{ background:rgba(0,0,0,.08) }
 
 /* Pills (čipy) */
 .pills{ display:flex; gap:8px; flex-wrap:wrap }
