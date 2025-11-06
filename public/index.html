@@ -3,120 +3,115 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Wenku – AI Document Reader</title>
+  <title>Wenku — Day/Night Concept</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
-<body>
-  <canvas id="bg"></canvas>
+<body class="theme-bio day"> 
+  <!-- Varianta přepínání:
+       - BIO-GLASS (day):  <body class="theme-bio day">
+       - NEON ACCENT (night): <body class="theme-neon night">
+       Přepínač dole v <script> pro kliknutí. -->
 
-  <header class="topbar glass">
-    <div class="left">
-      <button id="themeToggle" aria-label="Přepnout motiv">🌓</button>
-    </div>
-    <div class="right">
-      <div class="settings">
-        <button id="btnSettings" title="Nastavení">⚙️</button>
-        <div id="settingsPanel" class="panel hidden">
-          <label>API Base URL
-            <input id="apiBase" value="/api" />
-          </label>
-          <label>Model
-            <select id="model">
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-              <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
-              <option value="local">local (bez LLM)</option>
-            </select>
-          </label>
-          <div class="hint">Gemini/OpenAI vyžadují klíč v ENV na serveru.</div>
-        </div>
-      </div>
-      <img src="https://dummyimage.com/120x36/B3D334/000&text=Wenku" alt="Wenku" class="logo" />
-    </div>
-  </header>
-
-  <main class="grid">
-    <aside class="pane glass">
-      <h2>Nahrát dokument</h2>
-      <input id="file" type="file" accept=".pdf,.docx,.txt,.md" />
-      <button id="uploadBtn">Nahrát</button>
-      <div id="uploadInfo" class="muted"></div>
-    </aside>
-
-    <section class="results glass">
-      <h2>Výsledky</h2>
-      <div id="feed"></div>
-    </section>
-  </main>
-
-  <footer class="chat glass">
-    <div class="chat-inner">
-      <input id="q" placeholder="Zeptej se na obsah dokumentu…" />
-      <button id="askBtn">Zeptat se</button>
-    </div>
-  </footer>
-
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script type="module" src="./api.js"></script>
-  <script type="module" src="./script.js"></script>
-</body>
-</html>
-<!doctype html>
-<html lang="cs">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Wenku — AI Document Reader</title>
-  <link rel="stylesheet" href="./style.css" />
-</head>
-<body>
-  <div class="app glass"> <!-- JEDEN společný glass kontejner -->
-    <div class="topbar">
+  <div class="app glass">
+    <header class="topbar">
       <div class="brand">Wenku</div>
-      <div class="settings">
-        <span id="modelBadge" class="badge">model: ...</span>
-        <button id="themeToggle" class="btn icon" title="Přepnout motiv">🌓</button>
+      <div class="grow"></div>
+      <div class="switchers">
+        <button id="modeBtn" class="btn pill">🌤️ Day</button>
+        <button id="styleBtn" class="btn pill">🧪 Bio-Glass</button>
       </div>
-    </div>
+    </header>
 
-    <div class="layout">
-      <!-- Levý panel: Dokumenty na výběr (persist) -->
+    <section class="layout">
       <aside class="sidebar">
-        <div class="side-header">
+        <div class="panel">
           <h2>Dokumenty na výběr</h2>
-          <button id="addDocBtn" class="btn icon" title="Přidat dokument">➕</button>
+          <div class="doc-list">
+            <div class="doc">
+              <div class="icon">📄</div>
+              <div class="meta">
+                <div class="name">Manual_na_2025_03.pdf</div>
+                <div class="sub">47 stran</div>
+              </div>
+              <button class="btn tiny ghost">🗑️</button>
+            </div>
+            <div class="doc">
+              <div class="icon">📄</div>
+              <div class="meta">
+                <div class="name">Metodika_finální.docx</div>
+                <div class="sub">18 stran</div>
+              </div>
+              <button class="btn tiny ghost">🗑️</button>
+            </div>
+            <button class="btn full add">➕ Přidat dokument</button>
+          </div>
         </div>
-
-        <ul id="docList" class="doc-list">
-          <!-- plní se skriptem -->
-        </ul>
-
-        <form id="uploadForm" class="hidden">
-          <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md" />
-        </form>
-
-        <div id="uploadInfo" class="muted small"></div>
       </aside>
 
-      <!-- Hlavní plocha: Výsledky -->
       <main class="main">
-        <div class="results" id="results">
-          <div id="emptyState" class="empty">
-            Nahraj nebo vyber dokument vlevo. Ptej se dole uprostřed. Odpovědi budou **stručné** s **citacemi stran**.
+        <div class="panel">
+          <div class="chip ok"><span class="dot"></span> Dokument nahrán.</div>
+          <h1>Výsledky</h1>
+
+          <div class="card">
+            <div class="answer">
+              **Shrnutí:** Návrh zavádí síť mobilních ordinací. <br/>
+              **Klíčové přínosy:** dostupnost, rychlý náběh, škálovatelnost. <br/>
+              **Náklady:** pořizovací ~11–12 mil. Kč / ordinace; provoz dle regionu.
+            </div>
+            <div class="cites">
+              <span class="badge"><span class="dot"></span> str. 12</span>
+              <span class="badge"><span class="dot"></span> str. 41</span>
+              <span class="badge"><span class="dot"></span> str. 47</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="answer">
+              V poskytnutém kontextu **není** explicitně uveden roční limit; hledej v kapitole *Rozpočet* (str. 38–44).
+            </div>
+            <div class="cites">
+              <span class="badge"><span class="dot"></span> str. 38</span>
+            </div>
           </div>
         </div>
       </main>
-    </div>
+    </section>
 
     <footer class="chat">
-      <form id="askForm" class="askForm">
-        <input id="questionInput" type="text" placeholder="Zeptej se na obsah dokumentu…" />
-        <button class="btn primary" type="submit">Zeptej se</button>
+      <form class="askForm" onsubmit="return false;">
+        <input type="text" placeholder="Zeptej se na obsah dokumentu…" />
+        <button class="btn primary">Zeptej se</button>
       </form>
     </footer>
   </div>
 
-  <script type="module" src="./api.js"></script>
-  <script type="module" src="./docs.js"></script>
-  <script type="module" src="./script.js"></script>
+  <script>
+    // Přepínání Day/Night a Bio/Neon bez reloadu.
+    const body = document.body;
+    const modeBtn = document.getElementById('modeBtn');
+    const styleBtn = document.getElementById('styleBtn');
+
+    function setMode(mode){ // "day" | "night"
+      body.classList.toggle('day', mode === 'day');
+      body.classList.toggle('night', mode === 'night');
+      modeBtn.textContent = mode === 'day' ? '🌤️ Day' : '🌙 Night';
+    }
+    function setStyle(style){ // "bio" | "neon"
+      body.classList.toggle('theme-bio', style === 'bio');
+      body.classList.toggle('theme-neon', style === 'neon');
+      styleBtn.textContent = style === 'bio' ? '🧪 Bio-Glass' : '⚡ Neon Accent';
+    }
+    // Init (můžeš si uložit do localStorage)
+    setStyle(body.classList.contains('theme-neon') ? 'neon' : 'bio');
+    setMode(body.classList.contains('night') ? 'night' : 'day');
+
+    modeBtn.addEventListener('click', () => {
+      setMode(body.classList.contains('day') ? 'night' : 'day');
+    });
+    styleBtn.addEventListener('click', () => {
+      setStyle(body.classList.contains('theme-bio') ? 'neon' : 'bio');
+    });
+  </script>
 </body>
 </html>
