@@ -1,165 +1,338 @@
-/* ===== Wenku NEON (night + day) ===== */
+/* ==========================================================================
+   Wenku UI — NEON (Night/Day)
+   Single source of truth for look & feel
+   ========================================================================== */
+
+/* --- Tokens -------------------------------------------------------------- */
 :root{
-  --wenku:#B3D334;
-  --fg:#e6e8ea; --muted:#a4a9b0;
-  --glass:rgba(255,255,255,.04);
-  --border:rgba(255,255,255,.12);
-  --primary:rgba(179,211,52,.12); --primary-border:rgba(179,211,52,.55);
-  --r-out:22px; --r:16px;
-  --content:1100px; --card-h:320px; --input-w:900px;
+  /* Brand */
+  --wenku: #B3D334;
+
+  /* Base (dark defaults) */
+  --fg: #e6e8ea;
+  --muted: #a4a9b0;
+
+  --bg: #0b0d0f;
+  --bg-accent: radial-gradient(1200px 900px at 85% 10%, rgba(179,211,52,.10), transparent 60%), var(--bg);
+
+  --glass: rgba(255,255,255,.04);
+  --glass-strong: rgba(255,255,255,.08);
+  --border: rgba(255,255,255,.12);
+
+  --primary-iso: rgba(179,211,52,1);
+  --primary: rgba(179,211,52,.12);
+  --primary-border: rgba(179,211,52,.55);
+
+  --r-out: 22px;
+  --r: 16px;
+
+  --content: 1100px;
+  --card-h: 320px;
+  --input-w: 900px;
+
+  /* Shadows */
+  --shadow-xl: 0 30px 120px rgba(0,0,0,.6);
+  --shadow-lg: 0 18px 80px rgba(0,0,0,.5);
+  --shadow-md: 0 12px 40px rgba(0,0,0,.35);
+  --shadow-soft-wenku: 0 0 60px rgba(179,211,52,.08);
 }
 
-/* Night / Day pozadí */
-.neon-night{ background:radial-gradient(1200px 900px at 85% 10%, rgba(179,211,52,.10), transparent 60%), #0b0d0f; color:var(--fg); }
+/* Light mode overrides */
 .neon-day{
-  --fg:#0d1117; --muted:#3c4a59; --border:rgba(0,0,0,.16);
-  --glass:rgba(255,255,255,.5);
-  --primary:rgba(179,211,52,.18); --primary-border:rgba(179,211,52,.55);
-  background:linear-gradient(180deg,#f5f7fa,#e9eef4); color:var(--fg);
+  --fg: #0d1117;
+  --muted: #3c4a59;
+
+  --bg: #eef2f7;
+  --bg-accent: linear-gradient(180deg,#f7f9fc,#eef2f7);
+
+  --glass: rgba(255,255,255,.68);
+  --glass-strong: rgba(255,255,255,.82);
+  --border: rgba(0,0,0,.12);
+
+  --primary: rgba(179,211,52,.16);
+  --primary-border: rgba(179,211,52,.55);
+
+  /* Softer daylight shadows */
+  --shadow-xl: 0 22px 60px rgba(0,0,0,.14);
+  --shadow-lg: 0 16px 44px rgba(0,0,0,.12);
+  --shadow-md: 0 10px 28px rgba(0,0,0,.10);
+  --shadow-soft-wenku: 0 0 40px rgba(179,211,52,.10);
 }
 
-*{box-sizing:border-box} html,body{height:100%}
-body{margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif}
+/* --- Reset --------------------------------------------------------------- */
+*{ box-sizing:border-box }
+html,body{ height:100% }
+body{
+  margin:0;
+  color:var(--fg);
+  background:var(--bg-accent);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
 
-/* App */
+/* Focus (a11y) */
+:where(button, [role="button"], input, select){
+  outline: none;
+}
+:where(button, [role="button"], input, select):focus-visible{
+  box-shadow: 0 0 0 4px rgba(179,211,52,.22);
+  border-color: var(--primary-border);
+}
+
+/* --- App Shell ----------------------------------------------------------- */
 .app.glass{
-  min-height:100dvh; margin:10px; border-radius:var(--r-out);
-  background:var(--glass); border:1px solid var(--border);
+  min-height:100dvh;
+  margin:10px;
+  border-radius:var(--r-out);
+  background:var(--glass);
+  border:1px solid var(--border);
   box-shadow:
     0 0 0 1px rgba(179,211,52,.08) inset,
-    0 30px 120px rgba(0,0,0,.6),
-    0 0 60px rgba(179,211,52,.08);
-  backdrop-filter:blur(14px) saturate(120%); -webkit-backdrop-filter:blur(14px) saturate(120%);
+    var(--shadow-xl),
+    var(--shadow-soft-wenku);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
   display:flex; flex-direction:column; overflow:hidden; position:relative;
 }
 .neon-day .app.glass{
-  box-shadow: 0 18px 60px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.7),
+    var(--shadow-xl);
 }
 
-/* Topbar */
-.topbar{display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border)}
-.brand{font-weight:800; letter-spacing:.4px}
-.grow{flex:1}
-.settings{display:flex; gap:8px; align-items:center}
-.badge{display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; background:rgba(179,211,52,.06); border:1px solid rgba(179,211,52,.28); font-size:12px}
-.btn{border:1px solid var(--border); background:rgba(255,255,255,.04); color:inherit; padding:8px 12px; border-radius:12px; cursor:pointer; transition:transform .12s, background .12s}
-.btn:hover{transform:translateY(-1px); background:rgba(255,255,255,.07)}
-.btn.icon{padding:7px 9px}
-.btn.primary{background:linear-gradient(180deg, rgba(179,211,52,.28), rgba(179,211,52,.16)); border-color:var(--primary-border); box-shadow:0 10px 32px rgba(179,211,52,.25), inset 0 1px 0 rgba(255,255,255,.2)}
-.btn.xs{padding:5px 8px; font-size:12px; border-radius:10px}
+/* --- Topbar -------------------------------------------------------------- */
+.topbar{
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px; border-bottom:1px solid var(--border);
+}
+.brand{ font-weight:800; letter-spacing:.4px }
+.grow{ flex:1 }
+.settings{ display:flex; gap:8px; align-items:center }
+.badge{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:3px 8px; border-radius:999px;
+  background:rgba(179,211,52,.06);
+  border:1px solid rgba(179,211,52,.28);
+  font-size:12px;
+}
+.btn{
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.04);
+  color:inherit;
+  padding:8px 12px; border-radius:12px;
+  cursor:pointer;
+  transition:transform .12s, background .12s, box-shadow .12s;
+}
+.btn:hover{ transform:translateY(-1px); background:rgba(255,255,255,.07) }
+.btn.icon{ padding:7px 9px }
+.btn.primary{
+  background:linear-gradient(180deg, rgba(179,211,52,.28), rgba(179,211,52,.16));
+  border-color:var(--primary-border);
+  box-shadow:0 10px 32px rgba(179,211,52,.25), inset 0 1px 0 rgba(255,255,255,.2);
+}
+.btn.xs{ padding:5px 8px; font-size:12px; border-radius:10px }
 
-/* Settings panel — blur jde ZA dialog, ne na něj */
+/* --- Settings (Modal) ---------------------------------------------------- */
+/* Overlay (blur je na overlay, ne na dialog) */
 .settings-panel{
-  position:fixed; inset:0; display:grid; place-items:center;
-  background:rgba(0,0,0,.35);
-  backdrop-filter:blur(22px) saturate(110%);
-  -webkit-backdrop-filter:blur(22px) saturate(110%);
-  z-index:50;
+  position:fixed; inset:0; z-index:1000;
+  display:grid; place-items:center;
+  background:rgba(0,0,0,.36);
+  backdrop-filter: blur(22px) saturate(110%);
+  -webkit-backdrop-filter: blur(22px) saturate(110%);
 }
-.settings-panel.hidden{display:none}
+.settings-panel.hidden{ display:none }
+
 .panel-inner{
-  width:min(520px, 92vw);
-  border:1px solid var(--border); border-radius:16px; padding:16px;
-  background:var(--glass);
-  box-shadow:0 18px 80px rgba(0,0,0,.5), 0 0 40px rgba(179,211,52,.10);
+  width:min(540px, 92vw);
+  border:1px solid var(--border);
+  border-radius:16px; padding:16px 16px 14px;
+  background:var(--glass-strong);
+  box-shadow: var(--shadow-lg), 0 0 40px rgba(179,211,52,.10);
 }
-.panel-title{margin:0 0 8px 0; font-size:16px; font-weight:700}
-.row{display:grid; gap:6px; margin-bottom:12px}
-.row label{font-size:13px; color:var(--muted)}
-.row input,.row select{border:1px solid var(--border); background:rgba(255,255,255,.04); color:inherit; padding:10px 12px; border-radius:10px; outline:none}
-.row input:focus,.row select:focus{border-color:var(--primary-border); box-shadow:0 0 0 4px rgba(179,211,52,.18)}
-.actions{display:flex; gap:8px; justify-content:flex-end}
-
-/* Layout */
-.layout{display:grid; grid-template-columns:320px 1fr; gap:0; flex:1; min-height:0}
-
-/* Sidebar */
-.sidebar{border-right:1px solid var(--border); padding:14px; min-height:0}
-.side-header{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px}
-
-/* Selection bar (multi-select) */
-.selection{
-  display:flex; align-items:center; gap:10px;
-  border:1px dashed var(--border); border-radius:12px;
-  padding:8px 10px; margin-bottom:10px; background:rgba(255,255,255,.02)
+.neon-day .panel-inner{
+  background: #ffffffea; /* čitelná bílá */
+  border-color: rgba(0,0,0,.10);
+  box-shadow: var(--shadow-lg);
 }
-.selection.hidden{display:none}
-.pills{display:flex; gap:8px; flex-wrap:wrap}
+.panel-title{ margin:0 0 10px 0; font-size:16px; font-weight:800 }
+.row{ display:grid; gap:6px; margin-bottom:12px }
+.row label{ font-size:13px; color:var(--muted) }
+.row input,.row select{
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.05);
+  color:inherit;
+  padding:10px 12px; border-radius:10px;
+}
+.neon-day .row input, .neon-day .row select{
+  background:#ffffff; border-color:rgba(0,0,0,.12);
+  color:#0d1117;
+}
+.row input:focus,.row select:focus{
+  border-color:var(--primary-border);
+  box-shadow:0 0 0 4px rgba(179,211,52,.20);
+}
+.actions{ display:flex; gap:8px; justify-content:flex-end }
+
+/* --- Layout -------------------------------------------------------------- */
+.layout{ display:grid; grid-template-columns:320px 1fr; gap:0; flex:1; min-height:0 }
+
+/* --- Sidebar ------------------------------------------------------------- */
+.sidebar{ border-right:1px solid var(--border); padding:14px; min-height:0 }
+.side-header{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px }
+
+/* Scope bar (Dotazovat v:) – pevná mřížka drží „Vymazat“ uvnitř vpravo */
+#scopeBar{
+  display:grid;
+  grid-template-columns: auto 1fr auto; /* label | chips | button */
+  align-items:center;
+  column-gap:12px; row-gap:8px;
+  padding:10px 12px;
+  border:1px dashed var(--border);
+  border-radius:12px;
+  background:rgba(255,255,255,.02);
+  margin-bottom:10px;
+}
+#scopeBar *{ min-width:0 }
+#scopeBar .scope-label{ color:var(--muted); font-size:13px; white-space:nowrap }
+#scopeChips{ display:flex; flex-wrap:wrap; gap:8px; min-width:0 }
+#scopeClear{ justify-self:end; white-space:nowrap }
+
+/* Pills (čipy) */
+.pills{ display:flex; gap:8px; flex-wrap:wrap }
 .pill{
   display:inline-flex; align-items:center; gap:8px;
-  padding:4px 8px; border-radius:999px;
-  background:rgba(179,211,52,.10); border:1px solid rgba(179,211,52,.35);
-  font-size:12px
+  padding:6px 10px; border-radius:999px;
+  background:rgba(179,211,52,.10);
+  border:1px solid rgba(179,211,52,.35);
+  font-size:12px; max-width:280px;
 }
-.pill .x{cursor:pointer; opacity:.75}
-.pill .x:hover{opacity:1}
+.pill .label{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.pill .x{ flex:0 0 auto; cursor:pointer; opacity:.75 }
+.pill .x:hover{ opacity:1 }
 
 /* Doc list */
-.doc-list{list-style:none; margin:0; padding:0; display:grid; gap:10px; max-height:calc(100dvh - 270px); overflow:auto}
+.doc-list{
+  list-style:none; margin:0; padding:0;
+  display:grid; gap:10px;
+  max-height:calc(100dvh - 270px);
+  overflow:auto;
+}
 .doc-item{
   display:flex; align-items:center; gap:10px;
   border:1px solid var(--border); border-radius:14px;
-  padding:10px; background:rgba(255,255,255,.02); cursor:pointer
+  padding:10px; background:rgba(255,255,255,.02);
+  cursor:pointer;
 }
-.doc-item.active{outline:2px solid rgba(179,211,52,.35)}
-.doc-item .meta{flex:1; min-width:0}
-.doc-item .name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.doc-item .sub{font-size:12px; color:var(--muted)}
-.doc-actions{display:flex; gap:6px}
-.doc-actions .btn{padding:6px 8px}
+.doc-item.active{ outline:2px solid rgba(179,211,52,.35) }
+.doc-item .meta{ flex:1; min-width:0 }
+.doc-item .name{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.doc-item .sub{ font-size:12px; color:var(--muted) }
+.doc-actions{ display:flex; gap:6px }
+.doc-actions .btn{ padding:6px 8px }
 
-/* Custom checkbox (multi-select) */
-.chk{display:inline-flex; align-items:center; justify-content:center}
-.chk input{appearance:none; -webkit-appearance:none; width:16px; height:16px; border-radius:5px; border:1px solid var(--border); background:rgba(255,255,255,.02); margin:0; cursor:pointer}
-.chk input:checked{background:linear-gradient(180deg, rgba(179,211,52,.9), rgba(179,211,52,.65)); border-color:var(--primary-border); box-shadow:0 0 0 3px rgba(179,211,52,.22)}
-
-/* Main */
-.main{min-width:0; min-height:0; padding:14px; display:flex; flex-direction:column}
-.results{width:100%; max-width:var(--content); margin:0 auto; padding-top:6px; overflow:auto; flex:1}
-
-.card{border:1px solid rgba(179,211,52,.18); border-radius:16px; padding:14px 14px 10px; margin:12px 0; background:rgba(255,255,255,.02); box-shadow:0 0 0 1px rgba(179,211,52,.06) inset, 0 12px 40px rgba(0,0,0,.35), 0 0 36px rgba(179,211,52,.08)}
-.answer{line-height:1.6; max-height:var(--card-h); overflow:auto}
-.cites{margin-top:8px; display:flex; gap:8px; flex-wrap:wrap}
-.badge .dot{width:6px; height:6px; border-radius:50%; background:var(--wenku)}
-
-/* Chip */
-.chip{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,.03); font-size:12px; margin-bottom:10px}
-.chip.ok{border-color:rgba(179,211,52,.35); background:rgba(179,211,52,.12)}
-.chip .dot{width:8px; height:8px; border-radius:50%; background:var(--wenku)}
-
-/* Chat */
-.chat{border-top:1px solid var(--border); padding:12px 16px}
-.askForm{max-width:var(--input-w); margin:0 auto; display:flex; gap:10px}
-.askForm input{flex:1; border:1px solid var(--border); border-radius:14px; outline:none; background:rgba(255,255,255,.04); color:inherit; padding:12px 14px; box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
-.askForm input:focus{border-color:var(--primary-border); box-shadow:0 0 0 4px rgba(179,211,52,.18), inset 0 1px 0 rgba(255,255,255,.1)}
-
-.muted{color:var(--muted)} .small{font-size:12px}
-.empty{border:1px dashed var(--border); border-radius:14px; padding:16px; color:var(--muted); text-align:center; margin-top:6px}
-.hidden{display:none}
-
-/* --- Scope bar (výběr dokumentů pro dotaz) ------------------ */
-#scopeBar{
-  display:flex; align-items:center; gap:10px;
-  flex-wrap:wrap; padding:10px 12px; border:1px solid var(--border);
-  border-radius:12px; background:rgba(255,255,255,.02);
+/* Custom checkbox */
+.chk{ display:inline-flex; align-items:center; justify-content:center }
+.chk input{
+  appearance:none; -webkit-appearance:none;
+  width:16px; height:16px; border-radius:5px;
+  border:1px solid var(--border); background:rgba(255,255,255,.02); margin:0; cursor:pointer;
 }
-#scopeBar .scope-label{ color:var(--muted); font-size:13px; }
-#scopeChips{
-  display:flex; flex-wrap:wrap; gap:8px;
-  flex:1 1 auto; min-width:0; /* důležité pro elipsy */
-}
-#scopeClear{
-  flex:0 0 auto; white-space:nowrap; margin-left:auto;
-  position:static; /* pojistka, kdyby něco bylo absolute */
+.chk input:checked{
+  background:linear-gradient(180deg, rgba(179,211,52,.95), rgba(179,211,52,.70));
+  border-color:var(--primary-border);
+  box-shadow:0 0 0 3px rgba(179,211,52,.22);
 }
 
-/* Čip – necháme poslední prvek (křížek) nesmrštit, text ellipsis */
+/* --- Main / Results ------------------------------------------------------ */
+.main{ min-width:0; min-height:0; padding:14px; display:flex; flex-direction:column }
+.results{
+  width:100%; max-width:var(--content);
+  margin:0 auto; padding-top:6px;
+  overflow:auto; flex:1;
+}
+
+/* Cards */
+.card{
+  border:1px solid rgba(179,211,52,.18);
+  border-radius:16px;
+  padding:14px 14px 10px; margin:12px 0;
+  background:rgba(255,255,255,.02);
+  box-shadow: 0 0 0 1px rgba(179,211,52,.06) inset, var(--shadow-md), var(--shadow-soft-wenku);
+}
+.neon-day .card{
+  background:#ffffff;
+  border-color: rgba(0,0,0,.08);
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, var(--shadow-md);
+}
+.answer{ line-height:1.6; max-height:var(--card-h); overflow:auto }
+.cites{ margin-top:8px; display:flex; gap:8px; flex-wrap:wrap }
+.badge .dot{ width:6px; height:6px; border-radius:50%; background:var(--wenku) }
+
+/* Informational chips */
 .chip{
   display:inline-flex; align-items:center; gap:8px;
-  max-width:280px; padding:6px 10px; border-radius:999px;
+  padding:6px 10px; border-radius:999px;
   border:1px solid var(--border); background:rgba(255,255,255,.03);
+  font-size:12px; margin-bottom:10px; max-width:280px;
 }
-.chip .label{ 
-  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+.chip.ok{ border-color:rgba(179,211,52,.35); background:rgba(179,211,52,.12) }
+.chip .dot{ width:8px; height:8px; border-radius:50%; background:var(--wenku) }
+.chip .label{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.chip .close{ flex:0 0 auto }
+
+/* --- Chat ---------------------------------------------------------------- */
+.chat{ border-top:1px solid var(--border); padding:12px 16px }
+.askForm{ max-width:var(--input-w); margin:0 auto; display:flex; gap:10px }
+.askForm input{
+  flex:1;
+  border:1px solid var(--border); border-radius:14px;
+  background:rgba(255,255,255,.04); color:inherit;
+  padding:12px 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
-.chip .close{ flex:0 0 auto; }
+.neon-day .askForm input{
+  background:#ffffff; border-color:rgba(0,0,0,.12);
+  box-shadow: inset 0 1px 0 rgba(0,0,0,.04);
+}
+.askForm input:focus{
+  border-color:var(--primary-border);
+  box-shadow: 0 0 0 4px rgba(179,211,52,.18), inset 0 1px 0 rgba(255,255,255,.1);
+}
+
+/* --- Utilities ----------------------------------------------------------- */
+.muted{ color:var(--muted) }
+.small{ font-size:12px }
+.empty{
+  border:1px dashed var(--border);
+  border-radius:14px; padding:16px;
+  color:var(--muted); text-align:center; margin-top:6px;
+}
+.hidden{ display:none }
+
+/* --- Scrollbars (subtle) ------------------------------------------------- */
+.results::-webkit-scrollbar,
+.doc-list::-webkit-scrollbar,
+.answer::-webkit-scrollbar{
+  height:10px; width:10px;
+}
+.results::-webkit-scrollbar-thumb,
+.doc-list::-webkit-scrollbar-thumb,
+.answer::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.12);
+  border-radius:999px;
+  border:2px solid transparent;
+  background-clip: padding-box;
+}
+.neon-day .results::-webkit-scrollbar-thumb,
+.neon-day .doc-list::-webkit-scrollbar-thumb,
+.neon-day .answer::-webkit-scrollbar-thumb{
+  background: rgba(0,0,0,.18);
+}
+
+/* --- Fine-tuning for selects in light mode ------------------------------ */
+.neon-day select{
+  background:#ffffff;
+  color:#0d1117;
+  border-color:rgba(0,0,0,.12);
+}
+.neon-day option{ color:#0d1117 }
