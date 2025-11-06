@@ -1,153 +1,125 @@
-/* ========== ZÁKLAD ========== */
+/* ===== Wenku NEON (night-only) — liquid glass + 3D edges ===== */
 :root{
   --wenku:#B3D334;
 
-  /* Base */
-  --bg:#0e1012;        /* night default */
+  --bg:radial-gradient(1200px 900px at 85% 10%, rgba(179,211,52,.10), transparent 60%), #0b0d0f;
   --fg:#e6e8ea;
   --muted:#a4a9b0;
-  --border:rgba(255,255,255,.12);
 
-  /* Glass / hloubka */
-  --glass:rgba(255,255,255,.06);
-  --shadow:0 18px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
-
-  /* 3D hrany */
-  --edge-hi:rgba(255,255,255,.18);
-  --edge-lo:rgba(0,0,0,.45);
-
-  /* Akcenty */
-  --primary:rgba(179,211,52,.18);
-  --primary-border:rgba(179,211,52,.45);
-
-  --r-out:22px;
-  --r:16px;
-  --r-sm:12px;
-  --content:1100px;
-  --card-h:320px;
-  --input-w:900px;
-}
-*{box-sizing:border-box}html,body{height:100%}
-body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;color:var(--fg);background:var(--bg)}
-
-/* ========== TÉMATA ==========
-   Kombinace .theme-bio/.theme-neon × .day/.night
-   Přepíná barvy, glow, blur, gradienty. */
-
-/* --- BIO-GLASS: světlé bio-sklo --- */
-.theme-bio.day{
-  --bg:linear-gradient(180deg,#f4f8ef,#e9f3df 40%,#e6f0dc);
-  --fg:#0d1117; --muted:#344155; --border:rgba(0,0,0,.12);
-  --glass:rgba(255,255,255,.45);
-  --shadow:0 18px 60px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.7);
-  --edge-hi:rgba(255,255,255,.85);
-  --edge-lo:rgba(0,0,0,.18);
-  --primary:rgba(179,211,52,.22);
-  --primary-border:rgba(179,211,52,.55);
-}
-
-/* --- BIO-GLASS: tmavé bio-sklo --- */
-.theme-bio.night{
-  --bg:radial-gradient(1000px 700px at 70% -10%, rgba(179,211,52,.08), transparent 55%), #0f1214;
-}
-
-/* --- NEON ACCENT: tmavý neon s glow --- */
-.theme-neon.night{
-  --bg:radial-gradient(1200px 900px at 85% 10%, rgba(179,211,52,.10), transparent 60%), #0b0d0f;
   --glass:rgba(255,255,255,.04);
+  --border:rgba(255,255,255,.12);
   --shadow:0 22px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04);
+
   --primary:rgba(179,211,52,.12);
   --primary-border:rgba(179,211,52,.55);
+
+  --r-out:22px; --r:16px;
+  --content:1100px; --card-h:320px; --input-w:900px;
 }
 
-/* --- NEON ACCENT: světlý (méně používat, spíš demo) --- */
-.theme-neon.day{
-  --bg:linear-gradient(180deg,#f5f7fa,#e9eef4);
-  --fg:#0d1117; --muted:#3c4a59; --border:rgba(0,0,0,.12);
-  --glass:rgba(255,255,255,.5);
-  --shadow:0 18px 60px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.8);
+*{box-sizing:border-box} html,body{height:100%}
+body{
+  margin:0;
+  font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  color:var(--fg);
+  background:var(--bg);
 }
 
-/* ========== APP WRAPPER (jedno glass pozadí s 3D hranou) ========== */
+/* = App wrapper: jedno sklo s 3D hranou a jemným neon glow = */
 .app.glass{
-  min-height:100dvh;
-  margin:10px;
+  min-height:100dvh; margin:10px;
   border-radius:var(--r-out);
   background:var(--glass);
   border:1px solid var(--border);
-  box-shadow:var(--shadow);
+  box-shadow:
+    0 0 0 1px rgba(179,211,52,.08) inset,
+    0 30px 120px rgba(0,0,0,.6),
+    0 0 60px rgba(179,211,52,.08);
   backdrop-filter:blur(14px) saturate(120%);
   -webkit-backdrop-filter:blur(14px) saturate(120%);
-  position:relative; display:flex; flex-direction:column; overflow:hidden;
+  display:flex; flex-direction:column; overflow:hidden; position:relative;
 }
-/* 3D „liquid edge“ */
 .app.glass::before{
-  content:""; position:absolute; inset:0;
-  border-radius:inherit;
+  content:""; position:absolute; inset:0; border-radius:inherit;
   background:
-    linear-gradient(180deg, var(--edge-hi), transparent 30%),
-    linear-gradient(0deg, var(--edge-lo), transparent 40%);
-  pointer-events:none; mix-blend-mode:soft-light; opacity:.55;
+    linear-gradient(180deg, rgba(255,255,255,.14), transparent 30%),
+    linear-gradient(0deg, rgba(0,0,0,.45), transparent 40%);
+  pointer-events:none; mix-blend-mode:soft-light; opacity:.45;
 }
 
-/* ========== TOPBAR ========== */
-.topbar{
-  display:flex; align-items:center; gap:12px;
-  padding:12px 16px; border-bottom:1px solid var(--border);
-}
+/* = Topbar = */
+.topbar{display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border)}
 .brand{font-weight:800; letter-spacing:.4px}
 .grow{flex:1}
-.switchers{display:flex; gap:8px}
-.btn{border:1px solid var(--border); background:rgba(255,255,255,.04); color:var(--fg);
-  padding:8px 12px; border-radius:12px; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease, background .12s ease}
-.btn:hover{transform:translateY(-1px)}
-.btn.primary{border-color:var(--primary-border); background:var(--primary)}
-.btn.pill{border-radius:999px}
-.btn.ghost{background:transparent}
-.btn.tiny{padding:6px 8px; font-size:12px}
-.btn.full{width:100%; justify-content:center}
+.settings{display:flex; gap:8px; align-items:center}
+.hidden{display:none}
 
-/* ========== LAYOUT ========== */
+.badge{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:3px 8px; border-radius:999px;
+  background:rgba(179,211,52,.06);
+  border:1px solid rgba(179,211,52,.28);
+  font-size:12px; color:var(--fg);
+}
+.btn{
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.04);
+  color:var(--fg);
+  padding:8px 12px; border-radius:12px; cursor:pointer;
+  transition:transform .12s ease, background .12s ease;
+}
+.btn:hover{transform:translateY(-1px); background:rgba(255,255,255,.07)}
+.btn.icon{padding:7px 9px}
+.btn.primary{
+  background:linear-gradient(180deg, rgba(179,211,52,.28), rgba(179,211,52,.16));
+  border-color:var(--primary-border);
+  box-shadow:0 10px 32px rgba(179,211,52,.25), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+/* = Layout = */
 .layout{display:grid; grid-template-columns:320px 1fr; gap:0; flex:1; min-height:0}
 
 /* Sidebar */
 .sidebar{border-right:1px solid var(--border); padding:14px; min-height:0}
-.panel{
-  border:1px solid var(--border); border-radius:var(--r);
-  background:rgba(255,255,255,.02);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
-  padding:14px;
-}
-h1,h2{margin:6px 0 12px}
-.doc-list{display:grid; gap:10px}
-.doc{
+.side-header{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px}
+.doc-list{list-style:none; margin:0; padding:0; display:grid; gap:10px; max-height:calc(100dvh - 210px); overflow:auto}
+.doc-item,.doc{
   display:flex; align-items:center; gap:10px;
   border:1px solid var(--border); border-radius:14px;
-  padding:10px 10px; background:rgba(255,255,255,.02);
+  padding:10px; background:rgba(255,255,255,.02);
 }
-.doc .icon{filter:saturate(110%)}
+.doc-item.active{outline:2px solid rgba(179,211,52,.35)}
 .doc .meta{flex:1; min-width:0}
 .doc .name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .doc .sub{font-size:12px; color:var(--muted)}
+.doc-actions{display:flex; gap:6px}
+.doc-actions .btn{padding:6px 8px}
 
 /* Main */
 .main{min-width:0; min-height:0; padding:14px; display:flex; flex-direction:column}
-.main .panel{max-width:var(--content); margin:0 auto; width:100%}
+.results{width:100%; max-width:var(--content); margin:0 auto; padding-top:6px; overflow:auto; flex:1}
+
+.card{
+  border:1px solid rgba(179,211,52,.18);
+  border-radius:16px;
+  padding:14px 14px 10px;
+  margin:12px 0;
+  background:rgba(255,255,255,.02);
+  box-shadow:
+    0 0 0 1px rgba(179,211,52,.06) inset,
+    0 12px 40px rgba(0,0,0,.35),
+    0 0 36px rgba(179,211,52,.08);
+}
+.answer{line-height:1.6; max-height:var(--card-h); overflow:auto}
+.cites{margin-top:8px; display:flex; gap:8px; flex-wrap:wrap}
+.badge .dot{width:6px; height:6px; border-radius:50%; background:var(--wenku)}
+
+/* Chip (stav) */
 .chip{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,.03); font-size:12px; margin-bottom:10px}
 .chip.ok{border-color:rgba(179,211,52,.35); background:rgba(179,211,52,.12)}
 .chip .dot{width:8px; height:8px; border-radius:50%; background:var(--wenku)}
 
-.card{
-  border:1px solid var(--border); border-radius:16px;
-  padding:14px 14px 10px; margin:12px 0; background:rgba(255,255,255,.02);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 6px 30px rgba(0,0,0,.15);
-}
-.answer{line-height:1.6; max-height:var(--card-h); overflow:auto}
-.cites{margin-top:8px; display:flex; gap:8px; flex-wrap:wrap}
-.badge{display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid var(--border); border-radius:999px; background:rgba(255,255,255,.03); font-size:12px}
-.badge .dot{width:6px; height:6px; border-radius:50%; background:var(--wenku)}
-
-/* ========== CHAT (centr dole) ========== */
+/* Chat spodek */
 .chat{border-top:1px solid var(--border); padding:12px 16px}
 .askForm{max-width:var(--input-w); margin:0 auto; display:flex; gap:10px}
 .askForm input{
@@ -155,34 +127,11 @@ h1,h2{margin:6px 0 12px}
   background:rgba(255,255,255,.04); color:var(--fg); padding:12px 14px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
 }
-.askForm input:focus{border-color:var(--primary-border); box-shadow:0 0 0 4px rgba(179,211,52,.18), inset 0 1px 0 rgba(255,255,255,.1)}
+.askForm input:focus{
+  border-color:var(--primary-border);
+  box-shadow:0 0 0 4px rgba(179,211,52,.18), inset 0 1px 0 rgba(255,255,255,.1);
+}
 
-/* ========== NEON DETAIL (jen pro .theme-neon) ========== */
-.theme-neon .app.glass{
-  box-shadow:
-    0 0 0 1px rgba(179,211,52,.08) inset,
-    0 30px 120px rgba(0,0,0,.6),
-    0 0 60px rgba(179,211,52,.08); /* jemný vnější glow */
-}
-.theme-neon .card{
-  border-color:rgba(179,211,52,.18);
-  box-shadow:
-    0 0 0 1px rgba(179,211,52,.06) inset,
-    0 12px 40px rgba(0,0,0,.35),
-    0 0 36px rgba(179,211,52,.08);
-}
-.theme-neon .btn.primary{
-  background:linear-gradient(180deg, rgba(179,211,52,.28), rgba(179,211,52,.16));
-  box-shadow:0 10px 32px rgba(179,211,52,.25), inset 0 1px 0 rgba(255,255,255,.25);
-  border-color:rgba(179,211,52,.55);
-}
-.theme-neon .badge{background:rgba(179,211,52,.06); border-color:rgba(179,211,52,.28)}
-
-/* ========== BIO DETAIL (jemnější, „organické“ světlo) ========== */
-.theme-bio .app.glass{
-  background:linear-gradient(180deg, rgba(255,255,255,.60), rgba(255,255,255,.45));
-  backdrop-filter:blur(24px) saturate(120%);
-  -webkit-backdrop-filter:blur(24px) saturate(120%);
-}
-.theme-bio.day .badge{background:rgba(179,211,52,.10); border-color:rgba(179,211,52,.35)}
-.theme-bio.day .btn.primary{background:linear-gradient(180deg, rgba(179,211,52,.35), rgba(179,211,52,.22)); border-color:rgba(179,211,52,.55)}
+/* Utility */
+.muted{color:var(--muted)} .small{font-size:12px}
+.empty{border:1px dashed var(--border); border-radius:14px; padding:16px; color:var(--muted); text-align:center; margin-top:6px}
