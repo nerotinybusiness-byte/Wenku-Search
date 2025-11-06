@@ -1,4 +1,3 @@
-// api/upload.js
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
@@ -21,13 +20,13 @@ async function extractPagesFromBuffer(buf, ext) {
     const data = await pdfParse(buf);
     const total = data.numpages || 1;
     if (total > 1) {
-      const lines = data.text.split(/\n/);
-      const perPage = Math.ceil(lines.length / total);
+      const lines = (data.text || "").split(/\n/);
+      const perPage = Math.ceil(lines.length / Math.max(total, 1));
       for (let i = 0; i < total; i++) {
         pageTexts.push(lines.slice(i * perPage, (i + 1) * perPage).join("\n").trim());
       }
     } else {
-      pageTexts = [data.text.trim()];
+      pageTexts = [(data.text || "").trim()];
     }
   } else if (ext === ".docx") {
     const r = await mammoth.extractRawText({ buffer: buf });
@@ -51,7 +50,8 @@ async function handleUpload(req, res) {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "Soubor chybí (field 'file')." });
 
-    const ext = path.extname(file.originalname || file.filename || "").toLowerCase();
+    const original = file.originalname || "document";
+    const ext = path.extname(original || file.filename || "").toLowerCase();
     const buf = fs.readFileSync(file.path);
 
     const pageTexts = await extractPagesFromBuffer(buf, ext);
@@ -59,12 +59,19 @@ async function handleUpload(req, res) {
     const session = ensureSession();
     const { chunks } = chunkPages(pageTexts, { targetTokens: 1200, overlapChars: 200 });
 
-    putSession(session.id, { createdAt: Date.now(), pages: pageTexts, chunks });
+    // uložíme i jméno, aby se dalo zobrazit a vracet v citacích
+    putSession(session.id, { createdAt: Date.now(), name: original, pages: pageTexts, chunks });
 
-    // smaz dočasný soubor
     try { fs.unlinkSync(file.path); } catch {}
 
-    res.json({ sessionId: session.id, pages: pageTexts.length });
+    // vrátíme i filename a docId (== sessionId) pro frontend
+    res.json({
+      sessionId: session.id,
+      docId: session.id,
+      name: original,
+      filename: original,
+      pages: pageTexts.length
+    });
   } catch (e) {
     console.error("UPLOAD ERROR:", e);
     res.status(500).json({ error: "Upload selhal." });

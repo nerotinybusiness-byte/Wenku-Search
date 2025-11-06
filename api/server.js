@@ -1,4 +1,3 @@
-// api/server.js
 const http = require("http");
 const path = require("path");
 const express = require("express");
@@ -32,17 +31,12 @@ app.get("/api/models", async (_req, res) => {
   }
 });
 
-
 // ⚙️ statika
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 app.set("etag", false);
-app.use((req, res, next) => {
-  res.setHeader("Cache-Control", "no-store, must-revalidate");
-  next();
-});
+app.use((req, res, next) => { res.setHeader("Cache-Control", "no-store, must-revalidate"); next(); });
 app.use(express.static(PUBLIC_DIR, { etag: false, maxAge: 0 }));
 
-// root
 app.get("/", (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "index.html")));
 
 // --- API ---
