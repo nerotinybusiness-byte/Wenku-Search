@@ -32,6 +32,12 @@ const questionInput = document.getElementById("questionInput");
 /* ============ State ============ */
 let state = { model: "local", sessionId: null, pages: 0, name: null };
 
+function truncateName(name, max = 28) {
+  const arr = Array.from(name || "");
+  return arr.length > max ? arr.slice(0, max - 1).join("") + "…" : name || "document";
+}
+
+
 /* ============ Settings init ============ */
 (function initTheme() {
   const storedTheme = localStorage.getItem("wenku.theme");
@@ -191,6 +197,29 @@ askForm.addEventListener("submit", async (e) => {
     questionInput.value = "";
   }
 });
+
+
+// příklad: render vybraných dokumentů nad seznamem
+function renderScopeChips(selectedDocs) {
+  const wrap = document.getElementById("scopeChips");
+  wrap.innerHTML = "";
+  for (const d of selectedDocs) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.dataset.id = d.sessionId; // nebo tvé id
+
+    const short = truncateName(d.name, 28);
+    chip.innerHTML = `
+      <span class="dot" style="width:8px;height:8px;border-radius:50%;background:${d.color || '#B3D334'}"></span>
+      <span class="label" title="${escapeHtml(d.name)}">${escapeHtml(short)}</span>
+      <span class="close" aria-hidden="true">×</span>
+    `;
+    chip.addEventListener("click", () => removeFromScope(d.sessionId));
+    wrap.appendChild(chip);
+  }
+}
+
 
 /* ============ Cards ============ */
 let cardSeq = 0;
