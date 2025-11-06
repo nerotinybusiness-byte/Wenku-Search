@@ -6,12 +6,24 @@ const mammoth = require("mammoth");
 const { ensureSession, putSession } = require("../lib/store");
 const { chunkPages } = require("../lib/chunker");
 
+// helper: pokusí se převést latin1 → utf8 (řeší „ManuĂ¡l“ → „Manuál“)
+function fixFilename(raw) {
+  if (!raw) return "document";
+  try {
+    const repaired = Buffer.from(raw, "latin1").toString("utf8");
+    // když by konverze dala nesmysl, vrať původní
+    return repaired.includes("�") ? raw : repaired;
+  } catch {
+    return raw;
+  }
+}
+
 const uploadMulter = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, path.join(__dirname, "..", ".tmp")),
-    filename: (_req, file, cb) => cb(null, Date.now() + "-" + (file.originalname || "file"))
+    filename: (_req, file, cb) => cb(null, Date.now() + "-" + (file.originalname || "file")),
   }),
-  limits: { fileSize: 25 * 1024 * 1024 } // 25 MB
+  limits: { fileSize: 25 * 1024 * 1024 },
 });
 
 async function extractPagesFromBuffer(buf, ext) {
@@ -50,7 +62,10 @@ async function handleUpload(req, res) {
     const file = req.file;
     if (!file) return res.status(400).json({ error: "Soubor chybí (field 'file')." });
 
-    const original = file.originalname || "document";
+    // ✅ oprava názvu na UTF-8
+    const originalRaw = file.originalname || "document";
+    const original = fixFilename(originalRaw);
+
     const ext = path.extname(original || file.filename || "").toLowerCase();
     const buf = fs.readFileSync(file.path);
 
@@ -59,18 +74,17 @@ async function handleUpload(req, res) {
     const session = ensureSession();
     const { chunks } = chunkPages(pageTexts, { targetTokens: 1200, overlapChars: 200 });
 
-    // uložíme i jméno, aby se dalo zobrazit a vracet v citacích
+    // ukládáme i název, aby se správně zobrazil a šel do citací
     putSession(session.id, { createdAt: Date.now(), name: original, pages: pageTexts, chunks });
 
     try { fs.unlinkSync(file.path); } catch {}
 
-    // vrátíme i filename a docId (== sessionId) pro frontend
     res.json({
       sessionId: session.id,
       docId: session.id,
-      name: original,
-      filename: original,
-      pages: pageTexts.length
+      name: original,       // ✅ správný UTF-8 název
+      filename: original,   // pro kompatibilitu
+      pages: pageTexts.length,
     });
   } catch (e) {
     console.error("UPLOAD ERROR:", e);

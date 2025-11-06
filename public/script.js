@@ -99,17 +99,20 @@ async function doUpload(file) {
     const r = await uploadDocument(file);
     state.sessionId = r.sessionId;
     state.pages = r.pages;
-    state.name = r.filename || "document";
+
+    // ✅ preferuj správný název z API; fallback na skutečný název souboru z prohlížeče
+    state.name = r.name || r.filename || file?.name || "document";
+
     const id = crypto.randomUUID();
     upsertDoc({ id, name: state.name, pages: state.pages, sessionId: state.sessionId, ts: Date.now() });
     setActiveId(id);
-    renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
-    renderSelectionBar();
+    renderDocList(docList, handleSelectDoc, handleDeleteDoc);
     uploadInfo.textContent = `OK: ${state.name} (${state.pages} stran) · session ${state.sessionId.slice(0,8)}…`;
   } catch (err) {
     uploadInfo.textContent = `Chyba: ${err.message || err}`;
   }
 }
+
 
 function handleSelectDoc(id) {
   const doc = loadDocs().find(d => d.id === id);
