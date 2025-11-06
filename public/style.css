@@ -1,106 +1,218 @@
-:root{
-  --brand:#B3D334;
-  --bg:#0b0d10;
-  --text:#e6e9ee;
-  --muted:#a9b2bd;
-  --glass-bg:rgba(255,255,255,0.06);
-  --glass-blur:24px;
-  --radius-outer:22px;
-  --radius-inner:16px;
-  --card:#12151a;
-  --border:rgba(255,255,255,0.08);
-}
-html,body{height:100%}
-*{box-sizing:border-box}
-body{
-  margin:0; background:var(--bg); color:var(--text);
-  font:16px/1.5 Inter,system-ui,Segoe UI,Arial,sans-serif;
-  overflow:hidden;
-}
-#bg{position:fixed; inset:0; z-index:0; display:block}
-
-/* liquid glass */
-.glass{
-  background:var(--glass-bg);
-  -webkit-backdrop-filter:blur(var(--glass-blur));
-  backdrop-filter:blur(var(--glass-blur));
-  border:1px solid var(--border);
-  border-radius:var(--radius-outer);
-  box-shadow:0 12px 38px rgba(0,0,0,.35);
+:root {
+  --bg: #0e1012;
+  --fg: #e6e8ea;
+  --muted: #a4a9b0;
+  --glass: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.12);
+  --accent: #B3D334;
+  --danger: #ff5c6c;
+  --shadow: 0 10px 30px rgba(0,0,0,0.35);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --max-input: 900px;
+  --content-max: 1080px; /* max šířka feedu uvnitř */
+  --card-max-h: 320px;   /* max výška obsahu karty (scroll) */
 }
 
-/* top bar */
-.topbar{
-  position:fixed; inset:16px 16px auto 16px; height:56px;
-  padding:8px 12px; z-index:2; display:flex; align-items:center; justify-content:space-between;
-}
-.topbar .logo{height:32px; border-radius:8px}
-.topbar .right{display:flex; align-items:center; gap:12px}
-.topbar .left{display:flex; align-items:center; gap:8px}
-#themeToggle,#btnSettings,#uploadBtn,#askBtn{
-  border:1px solid var(--border); background:#0f1318; color:var(--text);
-  padding:10px 14px; border-radius:12px; cursor:pointer;
-  box-shadow:0 6px 18px rgba(0,0,0,.25);
-}
-#btnSettings{padding:8px 10px}
-
-/* settings panel */
-.panel{
-  position:absolute; right:16px; top:60px; width:320px; padding:12px;
-  background:var(--card); border:1px solid var(--border); border-radius:16px;
-}
-.panel.hidden{display:none}
-.panel label{display:block; font-size:14px; color:var(--muted); margin-bottom:10px}
-.panel input, .panel select{
-  width:100%; background:#0f1318; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:8px;
-}
-.panel .hint{font-size:12px; color:var(--muted)}
-
-/* main grid */
-.grid{
-  position:fixed; top:88px; bottom:96px; left:16px; right:16px;
-  display:grid; grid-template-columns:340px 1fr; gap:16px; z-index:1;
-}
-.pane{padding:16px}
-.results{padding:16px; overflow:auto; scrollbar-width:thin}
-#feed{display:flex; flex-direction:column; gap:12px}
-.card{
-  background:#0f1318; border:1px solid var(--border); border-radius:var(--radius-inner);
-  padding:14px; box-shadow:0 8px 20px rgba(0,0,0,.25);
-}
-.card b, .card strong{color:var(--brand)}
-.badges{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap}
-.badge{
-  display:inline-block; font-size:12px; color:#0b0d10; background:var(--brand);
-  border-radius:999px; padding:4px 8px;
-}
-.badge[title]{cursor:help}
-.muted{color:var(--muted)}
-
-/* chat bottom – CENTERED like ChatGPT */
-.chat{
-  position:fixed; left:0; right:0; bottom:16px; height:auto;
-  z-index:2; display:flex; justify-content:center; pointer-events:none;
-}
-.chat-inner{
-  width:min(920px, 90vw); display:flex; gap:8px; align-items:center;
-  background:var(--glass-bg); border:1px solid var(--border); border-radius:16px; padding:8px;
-  -webkit-backdrop-filter:blur(var(--glass-blur)); backdrop-filter:blur(var(--glass-blur));
-  box-shadow:0 12px 32px rgba(0,0,0,.35);
-  pointer-events:auto;
-}
-.chat input{
-  flex:1; height:44px; border-radius:12px; border:1px solid var(--border);
-  background:#0f1318; color:var(--text); padding:0 12px; outline:none;
-}
-.chat button{
-  height:44px; padding:0 16px; border-radius:12px; border:1px solid var(--border);
-  background:var(--brand); color:#0b0d10; font-weight:600; cursor:pointer;
-  box-shadow:0 6px 18px rgba(179,211,52,.35);
+body.light {
+  --bg: #f7f8fa;
+  --fg: #0d1117;
+  --muted: #475569;
+  --glass: rgba(0,0,0,0.03);
+  --border: rgba(0,0,0,0.12);
+  --shadow: 0 8px 24px rgba(0,0,0,0.12);
 }
 
-/* Light theme */
-body.light{
-  --bg:#f7f9fc; --text:#0b0d10; --muted:#3f4953; --glass-bg:rgba(255,255,255,0.7); --border:rgba(0,0,0,0.08);
-  --card:#ffffff;
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+  background: radial-gradient(1200px 1200px at 70% -20%, rgba(179,211,52,0.08), transparent 60%), var(--bg);
+  color: var(--fg);
+}
+
+/* JEDEN společný glass kontejner přes app */
+.app.glass {
+  min-height: 100dvh;
+  margin: 8px;
+  border-radius: 22px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+}
+
+/* TOPBAR */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.brand { font-weight: 700; letter-spacing: .4px; }
+.settings { display: flex; gap: 8px; align-items: center; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(179,211,52,0.12);
+  color: var(--fg);
+  font-size: 12px;
+}
+.btn {
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--fg);
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.btn:hover { background: rgba(255,255,255,0.08); }
+.btn.primary { border-color: rgba(179,211,52,0.4); background: rgba(179,211,52,0.18); }
+.btn.primary:hover { background: rgba(179,211,52,0.28); }
+.btn.icon { padding: 8px 10px; font-size: 16px; }
+
+/* LAYOUT */
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0; /* žádné tři oddělené bloky */
+  flex: 1;
+  min-height: 0; /* pro správný flex scrolling */
+}
+
+/* Sidebar (levý panel) */
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding: 16px;
+  min-height: 0;
+}
+.side-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  max-height: calc(100dvh - 240px);
+  overflow: auto;
+}
+.doc-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 10px;
+  background: rgba(255,255,255,0.02);
+}
+.doc-item.active { outline: 2px solid rgba(179,211,52,0.35); }
+.doc-item .meta { flex: 1; min-width: 0; }
+.doc-item .name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-item .sub { font-size: 12px; color: var(--muted); }
+.doc-actions { display: flex; gap: 6px; }
+.doc-actions .btn { padding: 6px 8px; }
+
+/* Main (pravá plocha) */
+.main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.results {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 8px 0 0;
+  overflow: auto;
+  flex: 1;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 14px 10px 14px;
+  margin: 12px 0;
+  background: rgba(255,255,255,0.02);
+}
+.card .answer {
+  max-height: var(--card-max-h);
+  overflow: auto;           /* vnitřní scroll – drží výšku jak chceš */
+  line-height: 1.55;
+}
+
+/* Citace */
+.row-citations {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+/* Chat (spodní vstup) */
+.chat {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px 16px;
+}
+.askForm {
+  max-width: var(--max-input);
+  margin: 0 auto;
+  display: flex;
+  gap: 8px;
+}
+.askForm input {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04);
+  color: var(--fg);
+  padding: 12px 14px;
+  border-radius: 14px;
+  outline: none;
+}
+.askForm input:focus { border-color: rgba(179,211,52,0.45); box-shadow: 0 0 0 3px rgba(179,211,52,0.18); }
+
+/* Utility */
+.empty {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 8px;
+}
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.hidden { display: none; }
+
+/* Tooltip jednoduchý */
+.tooltip { position: relative; cursor: help; }
+.tooltip:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 0; top: calc(100% + 8px);
+  width: 360px; max-width: 60vw;
+  white-space: normal;
+  background: #101316; color: #e6e8ea;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  z-index: 10;
 }

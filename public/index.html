@@ -60,3 +60,63 @@
   <script type="module" src="./script.js"></script>
 </body>
 </html>
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Wenku — AI Document Reader</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="app glass"> <!-- JEDEN společný glass kontejner -->
+    <div class="topbar">
+      <div class="brand">Wenku</div>
+      <div class="settings">
+        <span id="modelBadge" class="badge">model: ...</span>
+        <button id="themeToggle" class="btn icon" title="Přepnout motiv">🌓</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <!-- Levý panel: Dokumenty na výběr (persist) -->
+      <aside class="sidebar">
+        <div class="side-header">
+          <h2>Dokumenty na výběr</h2>
+          <button id="addDocBtn" class="btn icon" title="Přidat dokument">➕</button>
+        </div>
+
+        <ul id="docList" class="doc-list">
+          <!-- plní se skriptem -->
+        </ul>
+
+        <form id="uploadForm" class="hidden">
+          <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md" />
+        </form>
+
+        <div id="uploadInfo" class="muted small"></div>
+      </aside>
+
+      <!-- Hlavní plocha: Výsledky -->
+      <main class="main">
+        <div class="results" id="results">
+          <div id="emptyState" class="empty">
+            Nahraj nebo vyber dokument vlevo. Ptej se dole uprostřed. Odpovědi budou **stručné** s **citacemi stran**.
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <footer class="chat">
+      <form id="askForm" class="askForm">
+        <input id="questionInput" type="text" placeholder="Zeptej se na obsah dokumentu…" />
+        <button class="btn primary" type="submit">Zeptej se</button>
+      </form>
+    </footer>
+  </div>
+
+  <script type="module" src="./api.js"></script>
+  <script type="module" src="./docs.js"></script>
+  <script type="module" src="./script.js"></script>
+</body>
+</html>
