@@ -8,6 +8,7 @@ const compression = require("compression");
 const { handleAsk } = require("./ask");
 const { handleUpload, uploadMulter } = require("./upload");
 const { handleSettings } = require("./settings");
+const { handleCore } = require("./core");
 
 const app = express();
 app.disable("x-powered-by");
@@ -58,6 +59,10 @@ app.use(express.static(PUBLIC_DIR, { etag: false, maxAge: 0 }));
 
 // Root
 app.get("/", (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "index.html")));
+
+// Core
+app.get("/api/core", handleCore);
+
 
 // --- API (settings/upload/ask) -------------------------------------------
 app.get("/api/settings", handleSettings);

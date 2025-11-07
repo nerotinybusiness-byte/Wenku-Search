@@ -12,7 +12,7 @@ const settingsPanel = document.getElementById("settingsPanel");
 const apiBaseInput  = document.getElementById("apiBase");
 const modelSel      = document.getElementById("modelSel");
 const themeSel      = document.getElementById("themeSel");
-const preloadCoreEl = document.getElementById("preloadCore"); // (volitelné – může nebýt v DOM)
+const preloadCoreEl = document.getElementById("preloadCore"); // volitelné v DOM
 const saveSettings  = document.getElementById("saveSettings");
 const closeSettings = document.getElementById("closeSettings");
 
@@ -22,9 +22,9 @@ const fileInput   = document.getElementById("fileInput");
 const uploadInfo  = document.getElementById("uploadInfo");
 const docList     = document.getElementById("docList");
 
-const selectionBar   = document.getElementById("selectionBar");   // scope bar wrapper (volitelné)
-const selectionPills = document.getElementById("selectionPills"); // místo pro čipy (volitelné)
-const clearSel       = document.getElementById("clearSel");       // tlačítko „Vymazat“ (volitelné)
+const selectionBar   = document.getElementById("selectionBar");
+const selectionPills = document.getElementById("selectionPills");
+const clearSel       = document.getElementById("clearSel");
 
 const results       = document.getElementById("results");
 const emptyState    = document.getElementById("emptyState");
@@ -42,8 +42,11 @@ function truncateName(name, max = 28) {
 function escapeHtml(str) {
   return (str || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
 }
+function apiBase() {
+  return (cfg.apiBase || "/api").replace(/\/+$/,"");
+}
 
-/* ============ Service Worker (core preload) ============ */
+/* ============ Service Worker (prefetch jádra) ============ */
 let swReady = false;
 (async function registerSW(){
   if ("serviceWorker" in navigator) {
@@ -51,12 +54,11 @@ let swReady = false;
       const reg = await navigator.serviceWorker.register("./sw.js");
       await navigator.serviceWorker.ready;
       swReady = true;
-      // auto-prefetch podle preference
       if (localStorage.getItem("wenku.prefetchCore") === "1") {
         navigator.serviceWorker.controller?.postMessage({ type: "WENKU_PREFETCH_CORE" });
       }
     } catch {
-      // tiše ignoruj – SW je volitelný
+      // volitelné; ignoruj
     }
   }
 })();
@@ -80,12 +82,9 @@ settingsBtn?.addEventListener("click", () => {
 
 closeSettings?.addEventListener("click", () => settingsPanel?.classList.add("hidden"));
 
-saveSettings?.addEventListener("click", () => {
+saveSettings?.addEventListener("click", async () => {
   cfg.apiBase = (apiBaseInput?.value || "/api").trim();
-  if (modelSel) {
-    cfg.model = modelSel.value;
-    state.model = cfg.model;
-  }
+  if (modelSel) { cfg.model = modelSel.value; state.model = cfg.model; }
   modelBadge && (modelBadge.textContent =
     `model: ${state.model}${cfg.model?.includes("gemini") ? " · gemini" : cfg.model?.includes("gpt") ? " · openai" : ""}`);
 
@@ -98,6 +97,9 @@ saveSettings?.addEventListener("click", () => {
     localStorage.setItem("wenku.prefetchCore", pre);
     if (swReady && pre === "1") {
       navigator.serviceWorker.controller?.postMessage({ type: "WENKU_PREFETCH_CORE" });
+    }
+    if (pre === "1") {
+      await bootCorePack(true); // vynucený preload + seed do UI
     }
   }
 
@@ -116,6 +118,50 @@ saveSettings?.addEventListener("click", () => {
   }
 })();
 
+/* ============ Core pack seed (levý panel) ============ */
+/**
+ * Načte manifest z /api/core a zapíše/aktualizuje core dokumenty do localStorage
+ * a přerenderuje levý panel. Respektuje přepínač wenku.prefetchCore, pokud není force.
+ */
+async function bootCorePack(force = false) {
+  try {
+    const enabled = localStorage.getItem("wenku.prefetchCore") === "1";
+    if (!enabled && !force) return;
+
+    const resp = await fetch(`${apiBase()}/core`, { cache: "no-store" });
+    if (!resp.ok) throw new Error(`Core API ${resp.status}`);
+    const manifest = await resp.json();
+
+    const last = localStorage.getItem("wenku.coreSeed");
+    if (String(last) === String(manifest.version) && !force) {
+      // verze se nezměnila → nic
+    } else {
+      let firstId = getActiveId();
+      for (const d of (manifest.docs || [])) {
+        const rec = {
+          id: d.id,                 // stabilní id pro UI
+          name: d.name,             // zobrazovaný název s diakritikou
+          pages: d.pages || 0,
+          sessionId: d.sessionId,   // používá se pro /api/ask
+          ts: d.ts || Date.now()
+        };
+        upsertDoc(rec);
+        if (!firstId) firstId = rec.id;
+      }
+      if (firstId) setActiveId(firstId);
+      renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
+      renderSelectionBar();
+      localStorage.setItem("wenku.coreSeed", String(manifest.version || Date.now()));
+      uploadInfo && (uploadInfo.textContent = "Core dokumenty načteny.");
+    }
+  } catch (e) {
+    console.warn("Core preload failed:", e);
+  }
+}
+
+// po startu zkus načíst core pack (respektuje přepínač)
+(async function initCoreOnBoot(){ try { await bootCorePack(false); } catch {} })();
+
 /* ============ Docs render & upload ============ */
 function syncActiveFromStore() {
   const activeId = getActiveId();
@@ -130,7 +176,6 @@ function syncActiveFromStore() {
   }
 }
 
-// render s callbackem na změnu výběru (pokud ho docs.js podporuje)
 renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
 syncActiveFromStore();
 renderSelectionBar();
@@ -187,14 +232,14 @@ function handleDeleteDoc(id) {
   }
 }
 
-/* ============ Scope bar (multi-select UI, zatím jen vizuál) ============ */
+/* ============ Scope bar (multi-select UI – vizuál) ============ */
 function handleSelectionChanged() {
   renderSelectionBar();
 }
 
 function renderSelectionBar() {
   const ids = getSelectedIds?.() || [];
-  if (!selectionBar || !selectionPills) return; // scope bar v DOM není → skip
+  if (!selectionBar || !selectionPills) return;
   if (!ids.length) { selectionBar.classList.add("hidden"); selectionPills.innerHTML = ""; return; }
 
   selectionBar.classList.remove("hidden");
