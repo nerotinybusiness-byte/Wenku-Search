@@ -28,25 +28,37 @@ export async function askQuestion(sessionId, q, model) {
   return r.json(); // { answer|answer_html, citations }
 }
 
-/* ---- CORE API (původní "listCore" pro ➕ Přidat) ---- */
+/* ------------------------------------------------------------------------
+   CORE (sjednoceno na Core Pack B)
+   - listCore(): vrací { files:[<name>...] } pro UI "➕ Přidat"
+     z /api/core/list (mapuje jména z indexu, odolné vůči HTML/404)
+   - listCoreSessions(): vrací { version, docs:[{slug,name,pages,sessionId}] }
+------------------------------------------------------------------------- */
+
+/* ---- CORE: jména pro "➕ Přidat" (z /api/core/list) ---- */
 export async function listCore() {
-  // Zpětná kompatibilita – pokud máš endpoint /api/core, vrátí { files:[...] }
-  const r = await fetch(`${cfg.apiBase}/core`, { cache: "no-store" });
+  const r = await fetch(`${cfg.apiBase}/core/list`, { cache: "no-store" });
   if (!r.ok) return { files: [] };
-  return r.json();
+  const ct = (r.headers.get("content-type") || "").toLowerCase();
+  if (!ct.includes("application/json")) return { files: [] };
+
+  const j = await r.json(); // { version, docs:[{name,...}] }
+  const files = Array.isArray(j?.docs) ? j.docs.map(d => d.name).filter(Boolean) : [];
+  return { files };
 }
 
-/* ---- CORE Pack B (⚡ Dotazovat bez uploadu) ---- */
+/* ---- CORE: detailní sessions pro "⚡ Dotazovat" ---- */
 export async function listCoreSessions() {
-  // Vrátí { version, docs:[{slug,name,pages,sessionId}] }
   const r = await fetch(`${cfg.apiBase}/core/list`, { cache: "no-store" });
   if (!r.ok) return { version: null, docs: [] };
-  return r.json();
+  const ct = (r.headers.get("content-type") || "").toLowerCase();
+  if (!ct.includes("application/json")) return { version: null, docs: [] };
+  return r.json(); // { version, docs:[{slug,name,pages,sessionId}] }
 }
 
 /* ---- Získání originálního core souboru (pro ➕ Přidat) ---- */
 export async function getCoreBlob(name) {
-  // bere statický soubor z /public/core/<name> (rychlé)
+  // statický soubor z /public/core/<name>
   const res = await fetch(`/core/${encodeURIComponent(name)}`, { cache: "reload" });
   if (!res.ok) throw new Error(`Core soubor '${name}' nenalezen`);
   const blob = await res.blob();
