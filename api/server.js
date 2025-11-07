@@ -1,14 +1,26 @@
 // api/server.js
+// Wenku API server (CommonJS)
+// - Statika z /public
+// - Upload/Ask/Settings
+// - Core Pack B:
+//    * build-time JSON (public/core/core-index.json + chunks/*.json)
+//    * registrace core sessions do RAM při startu
+//    * GET /api/core/list  → { version, docs:[{slug,name,pages,sessionId}] }
+// - Core streaming (pro viewer): /api/file/:id (PDF, Range) + /api/core-manifest (pro SW prefetch)
+
 const http = require("http");
 const path = require("path");
 const fs = require("fs");
 const express = require("express");
 const compression = require("compression");
 
+// Business endpoints
 const { handleAsk } = require("./ask");
 const { handleUpload, uploadMulter } = require("./upload");
 const { handleSettings } = require("./settings");
-const { handleCore } = require("./core");
+
+// In-memory store (pro core sessions)
+const { putSession } = require("../lib/store");
 
 const app = express();
 app.disable("x-powered-by");
@@ -20,13 +32,15 @@ app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 const tmpPath = path.join(__dirname, "..", ".tmp");
 if (!fs.existsSync(tmpPath)) fs.mkdirSync(tmpPath, { recursive: true });
 
-// --- CORE files dir -------------------------------------------------------
-const CORE_DIR = path.join(__dirname, "..", "core");
-if (!fs.existsSync(CORE_DIR)) fs.mkdirSync(CORE_DIR, { recursive: true });
+// --- Cesty (sjednocené) ---------------------------------------------------
+const PUBLIC_DIR = path.join(__dirname, "..", "public");
+const CORE_DIR   = path.join(PUBLIC_DIR, "core");             // << sjednoceno: core je pod /public/core
+const CORE_CHUNKS_DIR = path.join(CORE_DIR, "chunks");        // build výstupy
+const CORE_INDEX_PATH = path.join(CORE_DIR, "core-index.json");
 
-// --- Helpers --------------------------------------------------------------
+// --- Helpery (ETag, cache) -----------------------------------------------
 function makeEtag(stat) {
-  // jednoduchý silný ETag (není kryptografický hash, ale stačí pro revalidaci)
+  // jednoduchý silný ETag (ne kryptografický hash)
   return `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
 }
 function setLongCache(res) {
@@ -49,7 +63,6 @@ app.get("/api/models", async (_req, res) => {
 });
 
 // --- Statika (public) -----------------------------------------------------
-const PUBLIC_DIR = path.join(__dirname, "..", "public");
 app.set("etag", false);
 app.use((req, res, next) => {
   res.setHeader("Cache-Control", "no-store, must-revalidate");
@@ -60,19 +73,63 @@ app.use(express.static(PUBLIC_DIR, { etag: false, maxAge: 0 }));
 // Root
 app.get("/", (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "index.html")));
 
-// Core
-app.get("/api/core", handleCore);
-
-
 // --- API (settings/upload/ask) -------------------------------------------
 app.get("/api/settings", handleSettings);
 app.post("/api/upload", uploadMulter.single("file"), handleUpload);
 app.post("/api/ask", handleAsk);
 
-// --- CORE manifest --------------------------------------------------------
+// --- Core Pack B: registrace + seznam ------------------------------------
+/**
+ * Načte build-time index + chunky a zaregistruje core sessions do RAM.
+ * Vrací { version, docs }
+ */
+function registerCoreSessions() {
+  if (!fs.existsSync(CORE_INDEX_PATH)) {
+    console.warn("[core] core-index.json nenalezen – Core Pack B nebude aktivní.");
+    return { version: null, docs: [] };
+  }
+  const idxRaw = fs.readFileSync(CORE_INDEX_PATH, "utf8");
+  const index = JSON.parse(idxRaw);
+  const docs = Array.isArray(index.docs) ? index.docs : [];
+
+  let loaded = 0;
+  for (const d of docs) {
+    const chunksPath = path.join(CORE_CHUNKS_DIR, `${d.slug}.json`);
+    if (!fs.existsSync(chunksPath)) {
+      console.warn(`[core] chybí chunks: ${d.slug} – přeskočeno`);
+      continue;
+    }
+    const cRaw = fs.readFileSync(chunksPath, "utf8");
+    const parsed = JSON.parse(cRaw);
+
+    // Zapiš session do RAM (bez per-page textu; pickExcerpts umí fallback na chunk.text)
+    putSession(d.sessionId, {
+      id: d.sessionId,
+      createdAt: Date.now(),
+      name: d.name,
+      pages: new Array(parsed.pages).fill(""),
+      chunks: parsed.chunks
+    });
+    loaded++;
+  }
+  console.log(`[core] Načteno ${loaded}/${docs.length} core dokumentů (v${index.version})`);
+  return { version: index.version, docs };
+}
+
+// cache pro GET /api/core/list
+const coreCache = { version: null, docs: [] };
+app.get("/api/core/list", (_req, res) => {
+  res.json({ version: coreCache.version, docs: coreCache.docs });
+});
+
+// --- Core manifest (pro SW prefetch streamů) ------------------------------
 app.get("/api/core-manifest", (_req, res) => {
   try {
-    const files = fs.readdirSync(CORE_DIR).filter(f => f.toLowerCase().endsWith(".pdf"));
+    if (!fs.existsSync(CORE_DIR)) return res.json({ version: 1, items: [] });
+    const files = fs
+      .readdirSync(CORE_DIR)
+      .filter(f => f.toLowerCase().endsWith(".pdf"));
+
     const items = files.map(f => {
       const full = path.join(CORE_DIR, f);
       const stat = fs.statSync(full);
@@ -94,12 +151,11 @@ app.get("/api/core-manifest", (_req, res) => {
   }
 });
 
-// --- CORE file streaming s Accept-Ranges ----------------------------------
+// --- Core file streaming s Accept-Ranges ----------------------------------
 app.get("/api/file/:id", (req, res) => {
   try {
     const id = req.params.id;
     const safe = id.replace(/[^a-zA-Z0-9._-]/g, "");
-    // hledáme soubor {id}.pdf v CORE_DIR
     const filePath = path.join(CORE_DIR, `${safe}.pdf`);
     if (!filePath.startsWith(CORE_DIR)) return res.status(400).end(); // ochrana
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
@@ -127,12 +183,12 @@ app.get("/api/file/:id", (req, res) => {
     if (range) {
       const m = /^bytes=(\d*)-(\d*)$/.exec(range);
       if (!m) {
-        res.statusCode = 416; // Range Not Satisfiable
+        res.statusCode = 416;
         res.setHeader("Content-Range", `bytes */${total}`);
         return res.end();
       }
       let start = m[1] ? parseInt(m[1], 10) : 0;
-      let end = m[2] ? parseInt(m[2], 10) : total - 1;
+      let end   = m[2] ? parseInt(m[2], 10) : total - 1;
       if (isNaN(start) || isNaN(end) || start > end || end >= total) {
         res.statusCode = 416;
         res.setHeader("Content-Range", `bytes */${total}`);
@@ -159,11 +215,26 @@ app.get("/api/file/:id", (req, res) => {
 // Health
 app.get("/healthz", (_req, res) => res.send("ok"));
 
-// --- START ---------------------------------------------------------------
+// --- START (nejdřív core registrace, pak listen) --------------------------
 const server = http.createServer(app);
 server.keepAliveTimeout = 120000;
-server.headersTimeout = 125000;
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Wenku server listening on http://0.0.0.0:${PORT}`);
+server.headersTimeout   = 125000;
+
+(async function boot() {
+  // vytvoř strukturu /public/core (pro jistotu)
+  if (!fs.existsSync(CORE_DIR)) fs.mkdirSync(CORE_DIR, { recursive: true });
+  if (!fs.existsSync(CORE_CHUNKS_DIR)) fs.mkdirSync(CORE_CHUNKS_DIR, { recursive: true });
+
+  // Core Pack B: registrace do RAM
+  const { version, docs } = registerCoreSessions();
+  coreCache.version = version;
+  coreCache.docs    = docs;
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Wenku server listening on http://0.0.0.0:${PORT}`);
+  });
+})().catch(err => {
+  console.error("Server boot selhal:", err);
+  process.exit(1);
 });

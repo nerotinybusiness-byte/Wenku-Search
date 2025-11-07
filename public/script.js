@@ -1,5 +1,5 @@
 // public/script.js
-import { cfg, getSettings, uploadDocument, askQuestion, listCore, getCoreBlob } from "./api.js";
+import { cfg, getSettings, uploadDocument, askQuestion, listCore, listCoreSessions, getCoreBlob } from "./api.js";
 import {
   loadDocs, upsertDoc, renderDocList, getActiveId, setActiveId, removeDoc,
   getSelectedIds, setSelectedIds
@@ -118,44 +118,92 @@ saveSettings?.addEventListener("click", () => {
 /* ============ Core list (UI) ============ */
 async function initCoreList() {
   try {
-    const data = await listCore(); // { files: [...] }
-    const files = Array.isArray(data?.files) ? data.files : [];
-    if (!files.length) {
+    const addable = await listCore();            // { files:[...] }  (➕ Přidat – tvůj původní endpoint)
+    const coreB   = await listCoreSessions();    // { version, docs: [...] } (⚡ Dotazovat – Core Pack B)
+
+    const files = Array.isArray(addable?.files) ? addable.files : [];
+    const docs  = Array.isArray(coreB?.docs) ? coreB.docs : [];
+
+    if (!files.length && !docs.length) {
       coreWrap?.classList.add("hidden");
       return;
     }
     coreWrap?.classList.remove("hidden");
     coreList.innerHTML = "";
 
-    // vyrenderuj každou položku s tlačítkem ➕ Přidat
-    for (const name of files) {
-      const li = document.createElement("li");
-      li.className = "doc-item";
-      li.innerHTML = `
-        <div class="meta">
-          <div class="name" title="${escapeHtml(name)}">${escapeHtml(truncateName(name, 40))}</div>
-          <div class="sub">Core • uložené v cache</div>
-        </div>
-        <div class="doc-actions">
-          <button class="btn icon" data-add="${escapeHtml(name)}" title="Přidat do seznamu">➕</button>
-        </div>
-      `;
-      coreList.appendChild(li);
+    // ⚡ Dotazovat (Core sessions)
+    if (docs.length) {
+      const h = document.createElement("div");
+      h.className = "core-subtitle";
+      h.textContent = "Core dokumenty (okamžitě dotazovatelné)";
+      coreList.appendChild(h);
+
+      for (const d of docs) {
+        const li = document.createElement("div");
+        li.className = "doc-item";
+        li.innerHTML = `
+          <div class="meta">
+            <div class="name" title="${escapeHtml(d.name)}">${escapeHtml(truncateName(d.name, 40))}</div>
+            <div class="sub">Core • ${d.pages} stran • session ${escapeHtml(d.sessionId)}</div>
+          </div>
+          <div class="doc-actions">
+            <button class="btn xs primary" data-core-session="${escapeHtml(d.sessionId)}" data-name="${escapeHtml(d.name)}" title="Dotazovat bez uploadu">⚡ Dotazovat</button>
+          </div>
+        `;
+        coreList.appendChild(li);
+      }
+    }
+
+    // ➕ Přidat (stáhne originál PDF a nahraje přes /upload)
+    if (files.length) {
+      const h2 = document.createElement("div");
+      h2.className = "core-subtitle";
+      h2.textContent = "Core soubory (přidat jako vlastní)";
+      coreList.appendChild(h2);
+
+      for (const name of files) {
+        const li = document.createElement("div");
+        li.className = "doc-item";
+        li.innerHTML = `
+          <div class="meta">
+            <div class="name" title="${escapeHtml(name)}">${escapeHtml(truncateName(name, 40))}</div>
+            <div class="sub">Core • uložené v /public/core</div>
+          </div>
+          <div class="doc-actions">
+            <button class="btn xs" data-add="${escapeHtml(name)}" title="Přidat do seznamu">➕ Přidat</button>
+          </div>
+        `;
+        coreList.appendChild(li);
+      }
     }
   } catch {
     coreWrap?.classList.add("hidden");
   }
 }
 coreList?.addEventListener("click", async (e) => {
-  const name = e.target?.dataset?.add;
-  if (!name) return;
-  // stáhni z /public/core (z cache SW), zabal do File a pošli na /api/upload
-  try {
-    uploadInfo && (uploadInfo.textContent = `Připravuji ${name}…`);
-    const file = await getCoreBlob(name);
-    await doUpload(file); // použij existující upload flow (chunkování, session, uložení do LS)
-  } catch (err) {
-    uploadInfo && (uploadInfo.textContent = `Chyba: ${err.message || err}`);
+  const t = e.target;
+  if (!t) return;
+
+  // ⚡ Dotazovat – rovnou nastav core session
+  const coreSession = t.dataset?.coreSession;
+  if (coreSession) {
+    state.sessionId = coreSession;
+    state.name      = t.dataset?.name || "Core";
+    state.pages     = 0;
+    uploadInfo && (uploadInfo.textContent = `Vybrán core: ${state.name} · session ${state.sessionId}`);
+    return;
+  }
+
+  // ➕ Přidat – stáhni originál a nahraj přes /upload (původní flow)
+  const name = t.dataset?.add;
+  if (name) {
+    try {
+      uploadInfo && (uploadInfo.textContent = `Připravuji ${name}…`);
+      const file = await getCoreBlob(name);
+      await doUpload(file);
+    } catch (err) {
+      uploadInfo && (uploadInfo.textContent = `Chyba: ${err.message || err}`);
+    }
   }
 });
 initCoreList();
@@ -320,7 +368,7 @@ function replaceCardWithAnswer(id, q, htmlAnswer, citations) {
     const norm = {
       docId:   c.docId   || c.doc?.id   || "",
       docName: c.docName || c.doc?.name || (state.name || "Dokument"),
-      page:    Number(c.page || 0),
+      page:    Number(c.page || 0) + 1,   // +1 pro lidské číslování
       excerpt: (c.excerpt || "").trim()
     };
     citesWrap.appendChild(makeCitationBadge(norm, true));

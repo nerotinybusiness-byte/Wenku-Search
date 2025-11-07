@@ -348,3 +348,12 @@ body{
   border-color:rgba(0,0,0,.12);
 }
 .neon-day option{ color:#0d1117 }
+
+/* --- Core UI additions --- */
+.core-subtitle{
+  font-size:12px;
+  letter-spacing:.06em;
+  opacity:.75;
+  margin:6px 2px;
+  text-transform:uppercase;
+}

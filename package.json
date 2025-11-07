@@ -5,13 +5,14 @@
   "main": "api/server.js",
   "scripts": {
     "start": "node api/server.js",
-    "dev": "node -r dotenv/config api/server.js"
+    "dev": "node -r dotenv/config api/server.js",
+    "build:core": "node scripts/core-build.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "compression": "^1.7.4",
     "express": "^4.19.2",
-    "mammoth": "^1.6.0",
+    "mammoth": "^1.7.1",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.55.0",
     "pdf-parse": "^1.1.1"

@@ -1,4 +1,4 @@
-/* public/sw.js — Wenku core prefetch */
+// public/sw.js — Wenku core prefetch (streamy /api/file/:id)
 const CORE_CACHE = "wenku-core-v1";
 const CORE_MANIFEST_URL = "/api/core-manifest";
 const CORE_MAX_BYTES = 6 * 1024 * 1024; // prefetch jen malé PDF (≤ ~6 MB)
@@ -10,7 +10,6 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
-    // smaž staré cache, pokud změníme verzi
     const names = await caches.keys();
     await Promise.all(
       names
