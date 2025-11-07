@@ -37,7 +37,6 @@ function truncateName(name, max = 28) {
   return arr.length > max ? arr.slice(0, max - 1).join("") + "…" : name || "document";
 }
 
-
 /* ============ Settings init ============ */
 (function initTheme() {
   const storedTheme = localStorage.getItem("wenku.theme");
@@ -105,8 +104,6 @@ async function doUpload(file) {
     const r = await uploadDocument(file);
     state.sessionId = r.sessionId;
     state.pages = r.pages;
-
-    // ✅ preferuj správný název z API; fallback na skutečný název souboru z prohlížeče
     state.name = r.name || r.filename || file?.name || "document";
 
     const id = crypto.randomUUID();
@@ -118,7 +115,6 @@ async function doUpload(file) {
     uploadInfo.textContent = `Chyba: ${err.message || err}`;
   }
 }
-
 
 function handleSelectDoc(id) {
   const doc = loadDocs().find(d => d.id === id);
@@ -176,14 +172,13 @@ clearSel.addEventListener("click", () => {
   renderSelectionBar();
 });
 
-/* ============ ASK flow (UI-only; backend beze změny) ============ */
+/* ============ ASK flow ============ */
 askForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const q = (questionInput.value || "").trim();
   if (!q) return;
   if (!state.sessionId) { prependErrorCard("Nejdřív vyber nebo nahraj dokument."); return; }
 
-  // Pozn.: výběr dokumentů zatím neposíláme na backend (Sprint 2 to přidá).
   const cardId = prependSkeletonCard(q);
   try {
     const resp = await askQuestion(state.sessionId, q, state.model);
@@ -197,7 +192,6 @@ askForm.addEventListener("submit", async (e) => {
     questionInput.value = "";
   }
 });
-
 
 // příklad: render vybraných dokumentů nad seznamem
 function renderScopeChips(selectedDocs) {
@@ -220,7 +214,6 @@ function renderScopeChips(selectedDocs) {
   }
 }
 
-
 /* ============ Cards ============ */
 let cardSeq = 0;
 
@@ -242,20 +235,27 @@ function prependSkeletonCard(q) {
 function replaceCardWithAnswer(id, q, htmlAnswer, citations) {
   const el = document.getElementById(id);
   if (!el) return;
+
+  // hlavička + odpověď
   el.innerHTML = `
     <div class="muted small">Dotaz:</div>
     <div style="margin-bottom:8px;">${escapeHtml(q)}</div>
     <div class="answer">${htmlAnswer}</div>
-    ${renderCitationsRow(citations)}
   `;
-}
 
-function renderCitationsRow(citations) {
-  if (!citations?.length) return "";
-  const badges = citations.map(c =>
-    `<span class="badge"><span class="dot"></span> str. ${c.page}</span>`
-  ).join("");
-  return `<div class="cites">${badges}</div>`;
+  // citace (DOM, ne jako string → kvůli data-* pro viewer)
+  const citesWrap = document.createElement("div");
+  citesWrap.className = "cites";
+  (citations || []).forEach(c => {
+    const norm = {
+      docId: c.docId || c.doc?.id || "",
+      docName: c.docName || c.doc?.name || "",
+      page: Number(c.page || 0),
+      excerpt: (c.excerpt || "").trim()
+    };
+    citesWrap.appendChild(makeCitationBadge(norm, true)); // s ikonou oka
+  });
+  el.appendChild(citesWrap);
 }
 
 function replaceCardWithError(id, message) {
@@ -266,4 +266,39 @@ function replaceCardWithError(id, message) {
 
 function escapeHtml(str) {
   return (str || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+
+/* ============ Citace → badge s „okem“ ============ */
+function docAbbr(name, max = 18) {
+  return name && name.length > max ? name.slice(0, max - 1) + "…" : (name || "");
+}
+
+function makeCitationBadge(c, withEyeIcon = true) {
+  const el = document.createElement("span");
+  el.className = "badge cite";
+  const name = c.docName || "Dokument";
+  const page = Number(c.page || 0);
+
+  // 🔑 data pro viewer.js
+  el.dataset.docId = c.docId || "";
+  el.dataset.docName = name;
+  el.dataset.page = String(page);
+  el.dataset.excerpt = (c.excerpt || "").trim();
+
+  el.title = `${name} • str. ${page} — klikni pro náhled`;
+  el.style.cursor = "pointer";
+
+  // ikonka oka + label
+  const label = `${docAbbr(name)}: str. ${page}`;
+  if (withEyeIcon) {
+    el.innerHTML =
+      `<svg class="eye" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+         <path d="M12 4.5c4.97 0 9.27 3.01 10.92 7.5C21.27 16.49 16.97 19.5 12 19.5S2.73 16.49 1.08 12C2.73 7.51 7.03 4.5 12 4.5zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" fill="currentColor"></path>
+       </svg>
+       <span class="label">${label}</span>`;
+  } else {
+    el.textContent = label;
+  }
+
+  return el;
 }
