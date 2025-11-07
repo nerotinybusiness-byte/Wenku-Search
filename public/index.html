@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wenku — AI Document Reader</title>
   <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./viewer.css" /> <!-- 🆕 viewer styles -->
 </head>
 <body class="neon-night">
   <div class="app glass">
@@ -74,7 +75,7 @@
       <main class="main">
         <div class="results" id="results">
           <div id="emptyState" class="empty">
-            Nahraj nebo vyber dokument vlevo. Ptej se dole uprostřed. Odpovědi budou **stručné** s **citacemi stran**.
+            Nahraj nebo vyber dokument vlevo. Ptej se dole uprostřed. Odpovědi budou <strong>stručné</strong> s <strong>citacemi stran</strong>.
           </div>
         </div>
       </main>
@@ -91,5 +92,6 @@
   <script type="module" src="./api.js"></script>
   <script type="module" src="./docs.js"></script>
   <script type="module" src="./script.js"></script>
+  <script defer src="./viewer.js"></script> <!-- 🆕 viewer runtime -->
 </body>
 </html>

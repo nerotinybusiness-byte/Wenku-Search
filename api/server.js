@@ -6,6 +6,7 @@ const compression = require("compression");
 const { handleAsk } = require("./ask");
 const { handleUpload, uploadMulter } = require("./upload");
 const { handleSettings } = require("./settings");
+const { signFileUrlHandler, streamFileHandler } = require("./files"); // 🆕 viewer endpoints
 
 const app = express();
 app.disable("x-powered-by");
@@ -43,6 +44,10 @@ app.get("/", (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "index.html")));
 app.get("/api/settings", handleSettings);
 app.post("/api/upload", uploadMulter.single("file"), handleUpload);
 app.post("/api/ask", handleAsk);
+
+// 🆕 Files (signed URL + stream)
+app.post("/api/file/sign", signFileUrlHandler);
+app.get("/api/file/:docId", streamFileHandler);
 
 app.get("/healthz", (_req, res) => res.send("ok"));
 
