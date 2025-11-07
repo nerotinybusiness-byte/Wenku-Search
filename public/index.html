@@ -4,8 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wenku — AI Document Reader</title>
+  <meta name="theme-color" content="#0b0d0f" />
   <link rel="stylesheet" href="./style.css" />
-  <link rel="stylesheet" href="./viewer.css" /> <!-- 🆕 viewer styles -->
+  <link rel="stylesheet" href="./viewer.css" />
 </head>
 <body class="neon-night">
   <div class="app glass">
@@ -14,7 +15,7 @@
       <div class="grow"></div>
       <div class="settings">
         <span id="modelBadge" class="badge">model: ...</span>
-        <button id="settingsBtn" class="btn icon" title="Nastavení">⚙️</button>
+        <button id="settingsBtn" class="btn icon" title="Nastavení" aria-label="Nastavení">⚙️</button>
       </div>
     </header>
 
@@ -22,10 +23,12 @@
     <div id="settingsPanel" class="settings-panel hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="panel-inner">
         <h3 id="settingsTitle" class="panel-title">Nastavení</h3>
+
         <div class="row">
           <label for="apiBase">API Base URL</label>
           <input id="apiBase" type="text" placeholder="/api" />
         </div>
+
         <div class="row">
           <label for="modelSel">Model</label>
           <select id="modelSel">
@@ -34,6 +37,7 @@
             <option value="gpt-4o-mini">gpt-4o-mini</option>
           </select>
         </div>
+
         <div class="row">
           <label for="themeSel">Theme</label>
           <select id="themeSel">
@@ -41,6 +45,13 @@
             <option value="neon-day">Neon · Day</option>
           </select>
         </div>
+
+        <!-- Volitelný toggle pro SW preload core packu (script.js s ním umí i když chybí) -->
+        <div class="row">
+          <label for="preloadCore">Preload core dokumentů</label>
+          <input id="preloadCore" type="checkbox" />
+        </div>
+
         <div class="actions">
           <button id="saveSettings" class="btn primary">Uložit</button>
           <button id="closeSettings" class="btn">Zavřít</button>
@@ -53,21 +64,23 @@
       <aside class="sidebar">
         <div class="side-header">
           <h2>Dokumenty na výběr</h2>
-          <button id="addDocBtn" class="btn icon" title="Přidat dokument">➕</button>
+          <button id="addDocBtn" class="btn icon" title="Přidat dokument" aria-label="Přidat dokument">➕</button>
         </div>
 
-        <!-- Aktuální výběr pro multi-read -->
+        <!-- Aktuální výběr pro multi-read (scope bar) -->
         <div id="selectionBar" class="selection hidden" aria-live="polite">
           <span class="muted small">Dotazovat v:</span>
           <div id="selectionPills" class="pills"></div>
-          <button id="clearSel" class="btn xs" title="Zrušit výběr">Vymazat</button>
+          <button id="clearSel" class="btn xs" title="Zrušit výběr" aria-label="Zrušit výběr">Vymazat</button>
         </div>
 
         <ul id="docList" class="doc-list"></ul>
 
         <form id="uploadForm" class="hidden">
+          <!-- Důležité: klient uploaduje pole s názvem "file" pro multer.single("file") -->
           <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md" />
         </form>
+
         <div id="uploadInfo" class="muted small"></div>
       </aside>
 
@@ -83,15 +96,16 @@
 
     <footer class="chat">
       <form id="askForm" class="askForm">
-        <input id="questionInput" type="text" placeholder="Zeptej se na obsah dokumentu…" />
+        <input id="questionInput" type="text" placeholder="Zeptej se na obsah dokumentu…" aria-label="Vstupní pole dotazu" />
         <button class="btn primary" type="submit">Zeptej se</button>
       </form>
     </footer>
   </div>
 
+  <!-- Skripty -->
   <script type="module" src="./api.js"></script>
   <script type="module" src="./docs.js"></script>
   <script type="module" src="./script.js"></script>
-  <script defer src="./viewer.js"></script> <!-- 🆕 viewer runtime -->
+  <script defer src="./viewer.js"></script>
 </body>
 </html>
