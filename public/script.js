@@ -1,5 +1,5 @@
 // public/script.js
-import { cfg, getSettings, uploadDocument, askQuestion } from "./api.js";
+import { cfg, getSettings, uploadDocument, askQuestion, listCore, getCoreBlob } from "./api.js";
 import {
   loadDocs, upsertDoc, renderDocList, getActiveId, setActiveId, removeDoc,
   getSelectedIds, setSelectedIds
@@ -12,7 +12,7 @@ const settingsPanel = document.getElementById("settingsPanel");
 const apiBaseInput  = document.getElementById("apiBase");
 const modelSel      = document.getElementById("modelSel");
 const themeSel      = document.getElementById("themeSel");
-const preloadCoreEl = document.getElementById("preloadCore"); // volitelné v DOM
+const preloadCoreEl = document.getElementById("preloadCore");
 const saveSettings  = document.getElementById("saveSettings");
 const closeSettings = document.getElementById("closeSettings");
 
@@ -21,6 +21,9 @@ const uploadForm  = document.getElementById("uploadForm");
 const fileInput   = document.getElementById("fileInput");
 const uploadInfo  = document.getElementById("uploadInfo");
 const docList     = document.getElementById("docList");
+
+const coreWrap    = document.getElementById("coreWrap");
+const coreList    = document.getElementById("coreList");
 
 const selectionBar   = document.getElementById("selectionBar");
 const selectionPills = document.getElementById("selectionPills");
@@ -42,24 +45,19 @@ function truncateName(name, max = 28) {
 function escapeHtml(str) {
   return (str || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
 }
-function apiBase() {
-  return (cfg.apiBase || "/api").replace(/\/+$/,"");
-}
 
-/* ============ Service Worker (prefetch jádra) ============ */
+/* ============ Service Worker (preload core) ============ */
 let swReady = false;
 (async function registerSW(){
   if ("serviceWorker" in navigator) {
     try {
-      const reg = await navigator.serviceWorker.register("./sw.js");
+      await navigator.serviceWorker.register("./sw.js");
       await navigator.serviceWorker.ready;
       swReady = true;
       if (localStorage.getItem("wenku.prefetchCore") === "1") {
         navigator.serviceWorker.controller?.postMessage({ type: "WENKU_PREFETCH_CORE" });
       }
-    } catch {
-      // volitelné; ignoruj
-    }
+    } catch { /* optional */ }
   }
 })();
 
@@ -79,12 +77,14 @@ settingsBtn?.addEventListener("click", () => {
   if (preloadCoreEl) preloadCoreEl.checked = localStorage.getItem("wenku.prefetchCore") === "1";
   settingsPanel?.classList.remove("hidden");
 });
-
 closeSettings?.addEventListener("click", () => settingsPanel?.classList.add("hidden"));
 
-saveSettings?.addEventListener("click", async () => {
+saveSettings?.addEventListener("click", () => {
   cfg.apiBase = (apiBaseInput?.value || "/api").trim();
-  if (modelSel) { cfg.model = modelSel.value; state.model = cfg.model; }
+  if (modelSel) {
+    cfg.model = modelSel.value;
+    state.model = cfg.model;
+  }
   modelBadge && (modelBadge.textContent =
     `model: ${state.model}${cfg.model?.includes("gemini") ? " · gemini" : cfg.model?.includes("gpt") ? " · openai" : ""}`);
 
@@ -97,9 +97,6 @@ saveSettings?.addEventListener("click", async () => {
     localStorage.setItem("wenku.prefetchCore", pre);
     if (swReady && pre === "1") {
       navigator.serviceWorker.controller?.postMessage({ type: "WENKU_PREFETCH_CORE" });
-    }
-    if (pre === "1") {
-      await bootCorePack(true); // vynucený preload + seed do UI
     }
   }
 
@@ -118,49 +115,50 @@ saveSettings?.addEventListener("click", async () => {
   }
 })();
 
-/* ============ Core pack seed (levý panel) ============ */
-/**
- * Načte manifest z /api/core a zapíše/aktualizuje core dokumenty do localStorage
- * a přerenderuje levý panel. Respektuje přepínač wenku.prefetchCore, pokud není force.
- */
-async function bootCorePack(force = false) {
+/* ============ Core list (UI) ============ */
+async function initCoreList() {
   try {
-    const enabled = localStorage.getItem("wenku.prefetchCore") === "1";
-    if (!enabled && !force) return;
-
-    const resp = await fetch(`${apiBase()}/core`, { cache: "no-store" });
-    if (!resp.ok) throw new Error(`Core API ${resp.status}`);
-    const manifest = await resp.json();
-
-    const last = localStorage.getItem("wenku.coreSeed");
-    if (String(last) === String(manifest.version) && !force) {
-      // verze se nezměnila → nic
-    } else {
-      let firstId = getActiveId();
-      for (const d of (manifest.docs || [])) {
-        const rec = {
-          id: d.id,                 // stabilní id pro UI
-          name: d.name,             // zobrazovaný název s diakritikou
-          pages: d.pages || 0,
-          sessionId: d.sessionId,   // používá se pro /api/ask
-          ts: d.ts || Date.now()
-        };
-        upsertDoc(rec);
-        if (!firstId) firstId = rec.id;
-      }
-      if (firstId) setActiveId(firstId);
-      renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
-      renderSelectionBar();
-      localStorage.setItem("wenku.coreSeed", String(manifest.version || Date.now()));
-      uploadInfo && (uploadInfo.textContent = "Core dokumenty načteny.");
+    const data = await listCore(); // { files: [...] }
+    const files = Array.isArray(data?.files) ? data.files : [];
+    if (!files.length) {
+      coreWrap?.classList.add("hidden");
+      return;
     }
-  } catch (e) {
-    console.warn("Core preload failed:", e);
+    coreWrap?.classList.remove("hidden");
+    coreList.innerHTML = "";
+
+    // vyrenderuj každou položku s tlačítkem ➕ Přidat
+    for (const name of files) {
+      const li = document.createElement("li");
+      li.className = "doc-item";
+      li.innerHTML = `
+        <div class="meta">
+          <div class="name" title="${escapeHtml(name)}">${escapeHtml(truncateName(name, 40))}</div>
+          <div class="sub">Core • uložené v cache</div>
+        </div>
+        <div class="doc-actions">
+          <button class="btn icon" data-add="${escapeHtml(name)}" title="Přidat do seznamu">➕</button>
+        </div>
+      `;
+      coreList.appendChild(li);
+    }
+  } catch {
+    coreWrap?.classList.add("hidden");
   }
 }
-
-// po startu zkus načíst core pack (respektuje přepínač)
-(async function initCoreOnBoot(){ try { await bootCorePack(false); } catch {} })();
+coreList?.addEventListener("click", async (e) => {
+  const name = e.target?.dataset?.add;
+  if (!name) return;
+  // stáhni z /public/core (z cache SW), zabal do File a pošli na /api/upload
+  try {
+    uploadInfo && (uploadInfo.textContent = `Připravuji ${name}…`);
+    const file = await getCoreBlob(name);
+    await doUpload(file); // použij existující upload flow (chunkování, session, uložení do LS)
+  } catch (err) {
+    uploadInfo && (uploadInfo.textContent = `Chyba: ${err.message || err}`);
+  }
+});
+initCoreList();
 
 /* ============ Docs render & upload ============ */
 function syncActiveFromStore() {
@@ -175,7 +173,6 @@ function syncActiveFromStore() {
       `Vybrán: ${doc.name} (${doc.pages} stran) · session ${doc.sessionId.slice(0,8)}…`);
   }
 }
-
 renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
 syncActiveFromStore();
 renderSelectionBar();
@@ -193,7 +190,7 @@ async function doUpload(file) {
     const r = await uploadDocument(file);
     state.sessionId = r.sessionId;
     state.pages     = r.pages;
-    state.name      = r.name || r.filename || file?.name || "document";
+    state.name      = file?.name || "document";
 
     const id = crypto.randomUUID();
     upsertDoc({ id, name: state.name, pages: state.pages, sessionId: state.sessionId, ts: Date.now() });
@@ -232,11 +229,8 @@ function handleDeleteDoc(id) {
   }
 }
 
-/* ============ Scope bar (multi-select UI – vizuál) ============ */
-function handleSelectionChanged() {
-  renderSelectionBar();
-}
-
+/* ============ Scope bar ============ */
+function handleSelectionChanged() { renderSelectionBar(); }
 function renderSelectionBar() {
   const ids = getSelectedIds?.() || [];
   if (!selectionBar || !selectionPills) return;
@@ -259,7 +253,6 @@ function renderSelectionBar() {
     selectionPills.appendChild(pill);
   });
 }
-
 selectionPills?.addEventListener("click", (e) => {
   const id = e.target?.dataset?.id;
   if (!id) return;
@@ -268,7 +261,6 @@ selectionPills?.addEventListener("click", (e) => {
   renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
   renderSelectionBar();
 });
-
 clearSel?.addEventListener("click", () => {
   setSelectedIds?.([]);
   renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
@@ -300,7 +292,6 @@ askForm?.addEventListener("submit", async (e) => {
 
 /* ============ Cards ============ */
 let cardSeq = 0;
-
 function prependSkeletonCard(q) {
   emptyState?.remove();
   const id = `card-${++cardSeq}`;
@@ -315,17 +306,14 @@ function prependSkeletonCard(q) {
   results?.prepend(el);
   return id;
 }
-
 function replaceCardWithAnswer(id, q, htmlAnswer, citations) {
   const el = document.getElementById(id);
   if (!el) return;
-
   el.innerHTML = `
     <div class="muted small">Dotaz:</div>
     <div style="margin-bottom:8px;">${escapeHtml(q)}</div>
     <div class="answer">${htmlAnswer}</div>
   `;
-
   const citesWrap = document.createElement("div");
   citesWrap.className = "cites";
   (citations || []).forEach(c => {
@@ -339,32 +327,27 @@ function replaceCardWithAnswer(id, q, htmlAnswer, citations) {
   });
   el.appendChild(citesWrap);
 }
-
 function replaceCardWithError(id, message) {
   const el = document.getElementById(id);
   if (!el) return;
   el.innerHTML = `<div class="answer" style="color:#ff5c6c">⚠️ ${escapeHtml(message)}</div>`;
 }
 
-/* ============ Citace → badge s „okem“ (připraveno pro viewer) ============ */
+/* ============ Citation badge ============ */
 function docAbbr(name, max = 18) {
   return name && name.length > max ? name.slice(0, max - 1) + "…" : (name || "");
 }
-
 function makeCitationBadge(c, withEyeIcon = true) {
   const el = document.createElement("span");
   el.className = "badge cite";
   const name = c.docName || "Dokument";
   const page = Number(c.page || 0);
-
   el.dataset.docId   = c.docId || "";
   el.dataset.docName = name;
   el.dataset.page    = String(page);
   el.dataset.excerpt = (c.excerpt || "").trim();
-
   el.title = `${name} • str. ${page} — klikni pro náhled`;
   el.style.cursor = "pointer";
-
   const label = `${docAbbr(name)}: str. ${page}`;
   if (withEyeIcon) {
     el.innerHTML =

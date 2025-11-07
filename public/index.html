@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Wenku — AI Document Reader</title>
-  <meta name="theme-color" content="#0b0d0f" />
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./viewer.css" />
 </head>
@@ -15,11 +14,11 @@
       <div class="grow"></div>
       <div class="settings">
         <span id="modelBadge" class="badge">model: ...</span>
-        <button id="settingsBtn" class="btn icon" title="Nastavení" aria-label="Nastavení">⚙️</button>
+        <button id="settingsBtn" class="btn icon" title="Nastavení">⚙️</button>
       </div>
     </header>
 
-    <!-- SETTINGS PANEL -->
+    <!-- SETTINGS -->
     <div id="settingsPanel" class="settings-panel hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="panel-inner">
         <h3 id="settingsTitle" class="panel-title">Nastavení</h3>
@@ -46,10 +45,9 @@
           </select>
         </div>
 
-        <!-- Volitelný toggle pro SW preload core packu (script.js s ním umí i když chybí) -->
-        <div class="row">
-          <label for="preloadCore">Preload core dokumentů</label>
+        <div class="row" style="display:flex;align-items:center;gap:10px">
           <input id="preloadCore" type="checkbox" />
+          <label for="preloadCore">Preload core dokumentů</label>
         </div>
 
         <div class="actions">
@@ -60,35 +58,40 @@
     </div>
 
     <section class="layout">
-      <!-- Sidebar: Dokumenty -->
+      <!-- Sidebar -->
       <aside class="sidebar">
         <div class="side-header">
           <h2>Dokumenty na výběr</h2>
-          <button id="addDocBtn" class="btn icon" title="Přidat dokument" aria-label="Přidat dokument">➕</button>
+          <button id="addDocBtn" class="btn icon" title="Přidat dokument">➕</button>
         </div>
 
-        <!-- Aktuální výběr pro multi-read (scope bar) -->
+        <!-- Core dokumenty (rychlé přidání) -->
+        <div id="coreWrap" class="hidden" aria-live="polite" style="margin-bottom:10px">
+          <div class="muted small" style="margin:4px 0 6px">Core dokumenty (rychlé přidání)</div>
+          <ul id="coreList" class="doc-list"></ul>
+        </div>
+
+        <!-- Multi-scope (volitelné) -->
         <div id="selectionBar" class="selection hidden" aria-live="polite">
           <span class="muted small">Dotazovat v:</span>
           <div id="selectionPills" class="pills"></div>
-          <button id="clearSel" class="btn xs" title="Zrušit výběr" aria-label="Zrušit výběr">Vymazat</button>
+          <button id="clearSel" class="btn xs" title="Zrušit výběr">Vymazat</button>
         </div>
 
         <ul id="docList" class="doc-list"></ul>
 
         <form id="uploadForm" class="hidden">
-          <!-- Důležité: klient uploaduje pole s názvem "file" pro multer.single("file") -->
           <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md" />
         </form>
-
         <div id="uploadInfo" class="muted small"></div>
       </aside>
 
-      <!-- Hlavní plocha -->
+      <!-- Main -->
       <main class="main">
         <div class="results" id="results">
           <div id="emptyState" class="empty">
-            Nahraj nebo vyber dokument vlevo. Ptej se dole uprostřed. Odpovědi budou <strong>stručné</strong> s <strong>citacemi stran</strong>.
+            Nahraj nebo vyber dokument vlevo. Ptej se dole uprostřed.
+            Odpovědi budou <strong>stručné</strong> s <strong>citacemi stran</strong>.
           </div>
         </div>
       </main>
@@ -96,13 +99,12 @@
 
     <footer class="chat">
       <form id="askForm" class="askForm">
-        <input id="questionInput" type="text" placeholder="Zeptej se na obsah dokumentu…" aria-label="Vstupní pole dotazu" />
+        <input id="questionInput" type="text" placeholder="Zeptej se na obsah dokumentu…" />
         <button class="btn primary" type="submit">Zeptej se</button>
       </form>
     </footer>
   </div>
 
-  <!-- Skripty -->
   <script type="module" src="./api.js"></script>
   <script type="module" src="./docs.js"></script>
   <script type="module" src="./script.js"></script>
