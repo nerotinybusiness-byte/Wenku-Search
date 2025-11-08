@@ -1,8 +1,6 @@
-// public/script.js
-import { cfg, getSettings, uploadDocument, askQuestion, listCore, listCoreSessions, getCoreBlob } from "./api.js";
+import { cfg, getSettings, uploadDocument, askQuestion } from "./api.js";
 import {
-  loadDocs, upsertDoc, renderDocList, getActiveId, setActiveId, removeDoc,
-  getSelectedIds, setSelectedIds
+  loadDocs, upsertDoc, renderDocList, getActiveId, setActiveId, removeDoc
 } from "./docs.js";
 
 /* ============ UI refs ============ */
@@ -12,7 +10,6 @@ const settingsPanel = document.getElementById("settingsPanel");
 const apiBaseInput  = document.getElementById("apiBase");
 const modelSel      = document.getElementById("modelSel");
 const themeSel      = document.getElementById("themeSel");
-const preloadCoreEl = document.getElementById("preloadCore");
 const saveSettings  = document.getElementById("saveSettings");
 const closeSettings = document.getElementById("closeSettings");
 
@@ -22,13 +19,6 @@ const fileInput   = document.getElementById("fileInput");
 const uploadInfo  = document.getElementById("uploadInfo");
 const docList     = document.getElementById("docList");
 
-const coreWrap    = document.getElementById("coreWrap");
-const coreList    = document.getElementById("coreList");
-
-const selectionBar   = document.getElementById("selectionBar");
-const selectionPills = document.getElementById("selectionPills");
-const clearSel       = document.getElementById("clearSel");
-
 const results       = document.getElementById("results");
 const emptyState    = document.getElementById("emptyState");
 const askForm       = document.getElementById("askForm");
@@ -37,36 +27,10 @@ const questionInput = document.getElementById("questionInput");
 /* ============ State ============ */
 let state = { model: "local", sessionId: null, pages: 0, name: null };
 
-/* ============ Helpers ============ */
-function truncateName(name, max = 28) {
-  const arr = Array.from(name || "");
-  return arr.length > max ? arr.slice(0, max - 1).join("") + "…" : (name || "document");
-}
-function escapeHtml(str) {
-  return (str || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
-
-/* ============ Service Worker (preload core) ============ */
-let swReady = false;
-(async function registerSW(){
-  if ("serviceWorker" in navigator) {
-    try {
-      await navigator.serviceWorker.register("./sw.js");
-      await navigator.serviceWorker.ready;
-      swReady = true;
-      if (localStorage.getItem("wenku.prefetchCore") === "1") {
-        navigator.serviceWorker.controller?.postMessage({ type: "WENKU_PREFETCH_CORE" });
-      }
-    } catch { /* optional */ }
-  }
-})();
-
 /* ============ Theme init ============ */
 (function initTheme() {
   const storedTheme = localStorage.getItem("wenku.theme");
-  if (storedTheme === "neon-day" || storedTheme === "neon-night") {
-    document.body.className = storedTheme;
-  }
+  document.body.className = (storedTheme === "neon-day") ? "neon-day" : "neon-night";
 })();
 
 /* ============ Settings open/close ============ */
@@ -74,7 +38,6 @@ settingsBtn?.addEventListener("click", () => {
   apiBaseInput && (apiBaseInput.value = cfg.apiBase || "/api");
   if (modelSel) modelSel.value = cfg.model || state.model || "local";
   if (themeSel) themeSel.value = document.body.classList.contains("neon-day") ? "neon-day" : "neon-night";
-  if (preloadCoreEl) preloadCoreEl.checked = localStorage.getItem("wenku.prefetchCore") === "1";
   settingsPanel?.classList.remove("hidden");
 });
 closeSettings?.addEventListener("click", () => settingsPanel?.classList.add("hidden"));
@@ -92,14 +55,6 @@ saveSettings?.addEventListener("click", () => {
   document.body.className = themeKey;
   localStorage.setItem("wenku.theme", themeKey);
 
-  if (preloadCoreEl) {
-    const pre = preloadCoreEl.checked ? "1" : "0";
-    localStorage.setItem("wenku.prefetchCore", pre);
-    if (swReady && pre === "1") {
-      navigator.serviceWorker.controller?.postMessage({ type: "WENKU_PREFETCH_CORE" });
-    }
-  }
-
   settingsPanel?.classList.add("hidden");
 });
 
@@ -115,99 +70,6 @@ saveSettings?.addEventListener("click", () => {
   }
 })();
 
-/* ============ Core list (UI) ============ */
-async function initCoreList() {
-  try {
-    const addable = await listCore();            // { files:[...] }  (➕ Přidat – tvůj původní endpoint)
-    const coreB   = await listCoreSessions();    // { version, docs: [...] } (⚡ Dotazovat – Core Pack B)
-
-    const files = Array.isArray(addable?.files) ? addable.files : [];
-    const docs  = Array.isArray(coreB?.docs) ? coreB.docs : [];
-
-    if (!files.length && !docs.length) {
-      coreWrap?.classList.add("hidden");
-      return;
-    }
-    coreWrap?.classList.remove("hidden");
-    coreList.innerHTML = "";
-
-    // ⚡ Dotazovat (Core sessions)
-    if (docs.length) {
-      const h = document.createElement("div");
-      h.className = "core-subtitle";
-      h.textContent = "Core dokumenty (okamžitě dotazovatelné)";
-      coreList.appendChild(h);
-
-      for (const d of docs) {
-        const li = document.createElement("div");
-        li.className = "doc-item";
-        li.innerHTML = `
-          <div class="meta">
-            <div class="name" title="${escapeHtml(d.name)}">${escapeHtml(truncateName(d.name, 40))}</div>
-            <div class="sub">Core • ${d.pages} stran • session ${escapeHtml(d.sessionId)}</div>
-          </div>
-          <div class="doc-actions">
-            <button class="btn xs primary" data-core-session="${escapeHtml(d.sessionId)}" data-name="${escapeHtml(d.name)}" title="Dotazovat bez uploadu">⚡ Dotazovat</button>
-          </div>
-        `;
-        coreList.appendChild(li);
-      }
-    }
-
-    // ➕ Přidat (stáhne originál PDF a nahraje přes /upload)
-    if (files.length) {
-      const h2 = document.createElement("div");
-      h2.className = "core-subtitle";
-      h2.textContent = "Core soubory (přidat jako vlastní)";
-      coreList.appendChild(h2);
-
-      for (const name of files) {
-        const li = document.createElement("div");
-        li.className = "doc-item";
-        li.innerHTML = `
-          <div class="meta">
-            <div class="name" title="${escapeHtml(name)}">${escapeHtml(truncateName(name, 40))}</div>
-            <div class="sub">Core • uložené v /public/core</div>
-          </div>
-          <div class="doc-actions">
-            <button class="btn xs" data-add="${escapeHtml(name)}" title="Přidat do seznamu">➕ Přidat</button>
-          </div>
-        `;
-        coreList.appendChild(li);
-      }
-    }
-  } catch {
-    coreWrap?.classList.add("hidden");
-  }
-}
-coreList?.addEventListener("click", async (e) => {
-  const t = e.target;
-  if (!t) return;
-
-  // ⚡ Dotazovat – rovnou nastav core session
-  const coreSession = t.dataset?.coreSession;
-  if (coreSession) {
-    state.sessionId = coreSession;
-    state.name      = t.dataset?.name || "Core";
-    state.pages     = 0;
-    uploadInfo && (uploadInfo.textContent = `Vybrán core: ${state.name} · session ${state.sessionId}`);
-    return;
-  }
-
-  // ➕ Přidat – stáhni originál a nahraj přes /upload (původní flow)
-  const name = t.dataset?.add;
-  if (name) {
-    try {
-      uploadInfo && (uploadInfo.textContent = `Připravuji ${name}…`);
-      const file = await getCoreBlob(name);
-      await doUpload(file);
-    } catch (err) {
-      uploadInfo && (uploadInfo.textContent = `Chyba: ${err.message || err}`);
-    }
-  }
-});
-initCoreList();
-
 /* ============ Docs render & upload ============ */
 function syncActiveFromStore() {
   const activeId = getActiveId();
@@ -221,9 +83,8 @@ function syncActiveFromStore() {
       `Vybrán: ${doc.name} (${doc.pages} stran) · session ${doc.sessionId.slice(0,8)}…`);
   }
 }
-renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
+renderDocList(docList, handleSelectDoc, handleDeleteDoc, null);
 syncActiveFromStore();
-renderSelectionBar();
 
 addDocBtn?.addEventListener("click", () => fileInput?.click());
 fileInput?.addEventListener("change", async () => {
@@ -238,12 +99,12 @@ async function doUpload(file) {
     const r = await uploadDocument(file);
     state.sessionId = r.sessionId;
     state.pages     = r.pages;
-    state.name      = file?.name || "document";
+    state.name      = r.name || file?.name || "document";
 
     const id = crypto.randomUUID();
     upsertDoc({ id, name: state.name, pages: state.pages, sessionId: state.sessionId, ts: Date.now() });
     setActiveId(id);
-    renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
+    renderDocList(docList, handleSelectDoc, handleDeleteDoc, null);
     if (uploadInfo) uploadInfo.textContent =
       `OK: ${state.name} (${state.pages} stran) · session ${state.sessionId.slice(0,8)}…`;
   } catch (err) {
@@ -258,16 +119,14 @@ function handleSelectDoc(id) {
   state.pages     = doc.pages;
   state.name      = doc.name;
   setActiveId(id);
-  renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
-  renderSelectionBar();
+  renderDocList(docList, handleSelectDoc, handleDeleteDoc, null);
   uploadInfo && (uploadInfo.textContent =
     `Vybrán: ${doc.name} (${doc.pages} stran) · session ${doc.sessionId.slice(0,8)}…`);
 }
 
 function handleDeleteDoc(id) {
   removeDoc(id);
-  renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
-  renderSelectionBar();
+  renderDocList(docList, handleSelectDoc, handleDeleteDoc, null);
   const active = getActiveId();
   if (!active) {
     state.sessionId = null; state.pages = 0; state.name = null;
@@ -277,50 +136,12 @@ function handleDeleteDoc(id) {
   }
 }
 
-/* ============ Scope bar ============ */
-function handleSelectionChanged() { renderSelectionBar(); }
-function renderSelectionBar() {
-  const ids = getSelectedIds?.() || [];
-  if (!selectionBar || !selectionPills) return;
-  if (!ids.length) { selectionBar.classList.add("hidden"); selectionPills.innerHTML = ""; return; }
-
-  selectionBar.classList.remove("hidden");
-  const docs = loadDocs();
-  selectionPills.innerHTML = "";
-
-  ids.forEach(id => {
-    const d = docs.find(x => x.id === id);
-    if (!d) return;
-    const pill = document.createElement("span");
-    pill.className = "pill";
-    const short = truncateName(d.name, 28);
-    pill.innerHTML = `
-      <span class="label" title="${escapeHtml(d.name)}">${escapeHtml(short)}</span>
-      <span class="x" data-id="${id}" title="Odebrat">×</span>
-    `;
-    selectionPills.appendChild(pill);
-  });
-}
-selectionPills?.addEventListener("click", (e) => {
-  const id = e.target?.dataset?.id;
-  if (!id) return;
-  const current = (getSelectedIds?.() || []).filter(x => x !== id);
-  setSelectedIds?.(current);
-  renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
-  renderSelectionBar();
-});
-clearSel?.addEventListener("click", () => {
-  setSelectedIds?.([]);
-  renderDocList(docList, handleSelectDoc, handleDeleteDoc, handleSelectionChanged);
-  renderSelectionBar();
-});
-
 /* ============ ASK flow ============ */
 askForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const q = (questionInput?.value || "").trim();
   if (!q) return;
-  if (!state.sessionId) { prependErrorCard("Nejdřív vyber nebo nahraj dokument."); return; }
+  if (!state.sessionId) { prependErrorCard("Nejdřív nahraj a vyber dokument."); return; }
 
   const cardId = prependSkeletonCard(q);
   try {
@@ -338,7 +159,7 @@ askForm?.addEventListener("submit", async (e) => {
   }
 });
 
-/* ============ Cards ============ */
+/* ============ Cards & citations ============ */
 let cardSeq = 0;
 function prependSkeletonCard(q) {
   emptyState?.remove();
@@ -366,9 +187,9 @@ function replaceCardWithAnswer(id, q, htmlAnswer, citations) {
   citesWrap.className = "cites";
   (citations || []).forEach(c => {
     const norm = {
-      docId:   c.docId   || c.doc?.id   || "",
-      docName: c.docName || c.doc?.name || (state.name || "Dokument"),
-      page:    Number(c.page || 0) + 1,   // +1 pro lidské číslování
+      docId:   c.docId || "",
+      docName: c.docName || (state.name || "Dokument"),
+      page:    Number(c.page || 0),
       excerpt: (c.excerpt || "").trim()
     };
     citesWrap.appendChild(makeCitationBadge(norm, true));
@@ -380,8 +201,6 @@ function replaceCardWithError(id, message) {
   if (!el) return;
   el.innerHTML = `<div class="answer" style="color:#ff5c6c">⚠️ ${escapeHtml(message)}</div>`;
 }
-
-/* ============ Citation badge ============ */
 function docAbbr(name, max = 18) {
   return name && name.length > max ? name.slice(0, max - 1) + "…" : (name || "");
 }
@@ -407,4 +226,8 @@ function makeCitationBadge(c, withEyeIcon = true) {
     el.textContent = label;
   }
   return el;
+}
+
+function escapeHtml(str) {
+  return (str || "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
 }
