@@ -87,6 +87,27 @@
     </footer>
   </div>
 
+  <!-- === INLINE PDF VIEWER (overlay) =================================== -->
+  <div id="viewerOverlay" class="viewer hidden" role="dialog" aria-modal="true" aria-labelledby="viewerTitle">
+    <div class="viewer-backdrop" data-close="1"></div>
+    <div class="viewer-panel" role="document">
+      <div class="viewer-topbar">
+        <div class="viewer-meta">
+          <div id="viewerTitle" class="viewer-title">Náhled dokumentu</div>
+          <div class="viewer-sub"><span id="viewerDocName">—</span> • str. <span id="viewerPage">—</span></div>
+        </div>
+        <div class="viewer-actions">
+          <a id="viewerOpenNew" class="btn xs" target="_blank" rel="noopener">Otevřít v nové záložce</a>
+          <button id="viewerClose" class="btn xs">Zavřít</button>
+        </div>
+      </div>
+      <div class="viewer-body">
+        <iframe id="viewerFrame" title="PDF náhled" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+  <!-- ==================================================================== -->
+
   <script type="module" src="./api.js"></script>
   <script type="module" src="./docs.js"></script>
   <script type="module" src="./script.js"></script>

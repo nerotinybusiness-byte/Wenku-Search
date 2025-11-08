@@ -1,28 +1,52 @@
-/* Minimal modal viewer */
-#doc-viewer-modal { position: fixed; inset: 0; display: none; z-index: 9999; }
-#doc-viewer-modal.open { display: grid; place-items: center; }
-#doc-viewer-modal .overlay { position: absolute; inset: 0; backdrop-filter: blur(6px); background: rgba(0,0,0,.5); }
-#doc-viewer-modal .dialog {
-  position: relative; width: min(1200px, 96vw); height: min(85vh, 900px);
-  background: #0b0d0f; color: #e6e8ea; border: 1px solid rgba(255,255,255,.12);
-  border-radius: 16px; overflow: hidden; display: grid; grid-template-rows: auto 1fr;
-}
-#doc-viewer-modal .head { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.1); }
-#doc-viewer-modal .head .title { font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#doc-viewer-modal .head .meta { opacity: .7; font-size: 12px; }
-#doc-viewer-modal .head .close { border: 0; background: rgba(255,255,255,.08); color: inherit; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
-#doc-viewer-modal .body { position: relative; background: #111; }
-#doc-viewer-modal .body iframe { width: 100%; height: 100%; border: 0; background: #1a1a1a; }
-#doc-viewer-modal .excerpt {
-  position: absolute; left: 12px; right: 12px; bottom: 12px;
-  background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.18); color: #e6e8ea;
-  padding: 8px 10px; border-radius: 10px; font-size: 12px; display: flex; gap: 8px; align-items: center;
-}
-#doc-viewer-modal .excerpt code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60ch; }
-#doc-viewer-modal .excerpt button { border: 0; background: rgba(255,255,255,.1); color: inherit; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+/* public/viewer.css — inline PDF viewer (overlay) */
 
-/* Citace → klikací badge s okem */
-.badge.cite { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-.badge.cite .eye { opacity: .95; flex: 0 0 auto; }
-.badge.cite:hover { opacity: .9; text-decoration: underline; }
+.viewer.hidden { display: none; }
 
+.viewer {
+  position: fixed; inset: 0; z-index: 2000;
+  display: grid; place-items: center;
+}
+
+.viewer-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px) saturate(110%);
+  -webkit-backdrop-filter: blur(10px) saturate(110%);
+}
+
+.viewer-panel {
+  position: relative;
+  width: min(1200px, 94vw);
+  height: min(90vh, 900px);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--glass);
+  box-shadow: var(--shadow-lg), 0 0 60px rgba(0,0,0,.35);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+.neon-day .viewer-panel {
+  background: #ffffff;
+  border-color: rgba(0,0,0,.12);
+}
+
+.viewer-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+}
+
+.viewer-meta { display: flex; flex-direction: column; gap: 2px; }
+.viewer-title { font-weight: 800; font-size: 14px }
+.viewer-sub { color: var(--muted); font-size: 12px }
+
+.viewer-actions { display: flex; gap: 8px; align-items: center }
+
+.viewer-body { flex: 1; min-height: 0; }
+.viewer-body iframe {
+  width: 100%; height: 100%; border: 0; background: #fff;
+}
+
+@media (max-width: 700px) {
+  .viewer-panel { width: 100vw; height: 100vh; border-radius: 0 }
+}
