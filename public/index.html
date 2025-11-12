@@ -111,6 +111,7 @@
   <script type="module" src="./api.js"></script>
   <script type="module" src="./docs.js"></script>
   <script type="module" src="./script.js"></script>
-  <script defer src="./viewer.js"></script>
+  <!-- ⚠️ MUSÍ být module, ne defer: -->
+  <script type="module" src="./viewer.js"></script>
 </body>
 </html>

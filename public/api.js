@@ -14,7 +14,7 @@ export async function uploadDocument(file) {
   fd.append("file", file);
   const r = await fetch(`${cfg.apiBase}/upload`, { method: "POST", body: fd });
   if (!r.ok) throw new Error(await r.text());
-  return r.json(); // { sessionId, pages, name }
+  return r.json(); // { sessionId, docId, pages, name, writeKey? }
 }
 
 /* ---- ASK ---- */
@@ -26,4 +26,11 @@ export async function askQuestion(sessionId, q, model) {
   });
   if (!r.ok) throw new Error(await r.text());
   return r.json(); // { answer|answer_html, citations }
+}
+
+/* ---- DOC (presign) ---- */
+export async function getFileUrlByDoc(docId) {
+  const r = await fetch(`${cfg.apiBase}/file/by-doc/${encodeURIComponent(docId)}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json(); // { url }
 }

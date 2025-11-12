@@ -8,7 +8,7 @@ const mammoth = require("mammoth");
 
 const { ensureSession, putSession, findSessionByFileHash } = require("../lib/store");
 const { chunkPages } = require("../lib/chunker");
-const { UPLOAD_DIR, ensureUploadsDir } = require("./files");
+const { saveOriginal } = require("./files");
 
 function fixFilename(raw) {
   if (!raw) return "document";
@@ -52,7 +52,9 @@ async function extractPagesFromBuffer(buf, ext) {
     const size = 1500;
     for (let i = 0; i < text.length; i += size) pageTexts.push(text.slice(i, i + size));
     if (!pageTexts.length) pageTexts = [text];
-  } else throw new Error(`Nepodporovaný typ: ${ext || "neznámý"} (PDF, DOCX, TXT, MD).`);
+  } else {
+    throw new Error(`Nepodporovaný typ: ${ext || "neznámý"} (PDF, DOCX, TXT, MD).`);
+  }
   return pageTexts;
 }
 
@@ -68,7 +70,7 @@ async function handleUpload(req, res) {
     const buf = fs.readFileSync(file.path);
     const fileHash = crypto.createHash("sha1").update(buf).digest("hex");
 
-    // 🔁 DEDUPE — pokud už máme stejný dokument (vč. Core), vrať jeho session
+    // Dedupe – vrátíme existující session se stejným souborem
     const dup = findSessionByFileHash(fileHash);
     if (dup && dup.pages?.length) {
       try { fs.unlinkSync(file.path); } catch {}
@@ -77,20 +79,16 @@ async function handleUpload(req, res) {
         docId: dup.id,
         name: dup.name || original,
         pages: dup.pages.length,
-        duplicateOf: dup.id
+        duplicateOf: dup.id,
       });
     }
 
-    // ➕ nový dokument
+    // Extrakce textu
     const pageTexts = await extractPagesFromBuffer(buf, ext);
     const { chunks } = chunkPages(pageTexts, { targetTokens: 1200, overlapChars: 200 });
 
-    ensureUploadsDir();
+    // Uložit originál do R2 (fallback disk) + metadata do session
     const session = ensureSession();
-    const safeName = sanitizeName(original);
-    const outPath = path.join(UPLOAD_DIR, `${session.id}${ext || ""}`);
-    fs.writeFileSync(outPath, buf);
-
     const mime =
       file.mimetype ||
       (ext === ".pdf" ? "application/pdf" :
@@ -98,17 +96,28 @@ async function handleUpload(req, res) {
        ext === ".txt" ? "text/plain" :
        ext === ".md" ? "text/markdown" : "application/octet-stream");
 
+    const saved = await saveOriginal(buf, {
+      sessionId: session.id,
+      ext,
+      mime,
+    });
+
+    const safeName = sanitizeName(original);
+
     putSession(session.id, {
       id: session.id,
       createdAt: Date.now(),
       name: original,
       filename: safeName,
-      filePath: outPath,
       fileHash,
       hasPdf: ext === ".pdf",
       mime,
       pages: pageTexts,
-      chunks
+      chunks,
+      // storage info
+      filePath: saved.path || null,
+      fileKey: saved.key || null,
+      storage: saved.storage,
     });
 
     try { fs.unlinkSync(file.path); } catch {}
@@ -117,7 +126,7 @@ async function handleUpload(req, res) {
       sessionId: session.id,
       docId: session.id,
       name: original,
-      pages: pageTexts.length
+      pages: pageTexts.length,
     });
   } catch (e) {
     console.error("UPLOAD ERROR:", e);

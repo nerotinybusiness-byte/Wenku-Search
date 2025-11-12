@@ -1,78 +1,97 @@
-'use strict';
+// api/files.js
+const fs = require("fs");
+const path = require("path");
+const {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+} = require("@aws-sdk/client-s3");
 
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { getSession } = require('../lib/store');
+const HAVE_R2 =
+  !!process.env.R2_ACCOUNT_ID &&
+  !!process.env.R2_ACCESS_KEY_ID &&
+  !!process.env.R2_SECRET_ACCESS_KEY &&
+  !!process.env.R2_ENDPOINT &&
+  !!process.env.R2_BUCKET;
 
-const TOKEN_TTL_SEC = 300; // 5 min
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+let s3 = null;
+if (HAVE_R2) {
+  s3 = new S3Client({
+    region: "auto",
+    endpoint: process.env.R2_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+}
+const BUCKET = process.env.R2_BUCKET || "";
 
+/* ===== Disk fallback (dev) ===== */
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
 function ensureUploadsDir() {
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-function sign(payload, secret) {
-  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+/* ===== Helpers ===== */
+function r2Key(sessionId, ext) {
+  return `uploads/${sessionId}${ext || ""}`;
 }
 
-function getSessionMeta(docId) {
-  const s = getSession(docId);
-  if (!s) return null;
-  const filePath = s.filePath;
-  const mime = s.mime || 'application/octet-stream';
-  const name = s.filename || s.name || 'document.pdf';
-  if (!filePath || !fs.existsSync(filePath)) return null;
-  return { filePath, mime, name };
-}
-
-// POST /api/file/sign  { docId }  → { url, name, mime }
-async function signFileUrlHandler(req, res) {
-  try {
-    const { docId } = req.body || {};
-    if (!docId) return res.status(400).json({ error: 'Missing docId' });
-
-    const meta = getSessionMeta(docId);
-    if (!meta) return res.status(404).json({ error: 'File not found' });
-
-    const secret = process.env.FILE_TOKEN_SECRET || '';
-    const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_SEC;
-    const base = `${docId}.${exp}`;
-    const sig = secret ? sign(base, secret) : 'dev';
-
-    const url = `/api/file/${encodeURIComponent(docId)}?e=${exp}&t=${sig}`;
-    res.json({ url, name: meta.name, mime: meta.mime });
-  } catch (e) {
-    res.status(500).json({ error: 'sign failed' });
+async function saveOriginal(buffer, { sessionId, ext, mime }) {
+  if (HAVE_R2) {
+    const Key = r2Key(sessionId, ext);
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key,
+        Body: buffer,
+        ContentType: mime || "application/octet-stream",
+      })
+    );
+    return { storage: "r2", key: Key, size: buffer.length };
+  } else {
+    ensureUploadsDir();
+    const filePath = path.join(UPLOAD_DIR, `${sessionId}${ext || ""}`);
+    fs.writeFileSync(filePath, buffer);
+    return { storage: "disk", path: filePath, size: buffer.length };
   }
 }
 
-// GET /api/file/:docId?e=&t=
-async function streamFileHandler(req, res) {
-  try {
-    const { docId } = req.params;
-    const { e, t } = req.query;
-
-    const meta = getSessionMeta(docId);
-    if (!meta) return res.status(404).json({ error: 'File not found' });
-
-    const secret = process.env.FILE_TOKEN_SECRET || '';
-    if (secret) {
-      const now = Math.floor(Date.now() / 1000);
-      const exp = parseInt(String(e), 10);
-      const sig = String(t || '');
-      if (!exp || !sig) return res.status(400).json({ error: 'Bad token' });
-      if (exp < now) return res.status(403).json({ error: 'Token expired' });
-      const ok = sig === sign(`${docId}.${exp}`, secret);
-      if (!ok) return res.status(403).json({ error: 'Bad signature' });
-    }
-
-    res.setHeader('Content-Type', meta.mime);
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(meta.name)}"`);
-    return res.sendFile(path.resolve(meta.filePath));
-  } catch (e) {
-    res.status(500).json({ error: 'stream failed' });
-  }
+async function headR2(Key) {
+  const h = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key }));
+  return {
+    size: Number(h.ContentLength || 0),
+    etag: h.ETag,
+    contentType: h.ContentType || "application/pdf",
+  };
 }
 
-module.exports = { signFileUrlHandler, streamFileHandler, UPLOAD_DIR, ensureUploadsDir };
+async function getR2Stream(Key, rangeHeader) {
+  const cmd = new GetObjectCommand({
+    Bucket: BUCKET,
+    Key,
+    Range: rangeHeader, // např. "bytes=0-1023"
+  });
+  const r = await s3.send(cmd);
+  return {
+    body: r.Body, // stream
+    contentRange: r.ContentRange || null,
+    size: Number(r.ContentLength || 0),
+    contentType: r.ContentType || "application/pdf",
+    etag: r.ETag,
+  };
+}
+
+module.exports = {
+  HAVE_R2,
+  s3,
+  BUCKET,
+  UPLOAD_DIR,
+  ensureUploadsDir,
+  r2Key,
+  saveOriginal,
+  headR2,
+  getR2Stream,
+};
