@@ -12,6 +12,17 @@ const { uploadMulter, handleUpload } = require("./upload");
 const DocAPI = require("./doc");
 
 const app = express();
+
+
+// zajisti .tmp pro multer
+const TMP_DIR = path.join(__dirname, "..", ".tmp");
+if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+
+// zajisti metadata dir (pro jistotu i tady)
+const META_DIR = path.join(__dirname, "..", "data", "docs");
+if (!fs.existsSync(META_DIR)) fs.mkdirSync(META_DIR, { recursive: true });
+
+
 app.disable("x-powered-by");
 app.use(compression());
 app.use(express.json({ limit: "25mb" }));
