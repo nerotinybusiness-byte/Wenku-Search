@@ -1,66 +1,56 @@
 // api/doc.js
-const { readMeta, deleteMeta } = require("./meta");
-const { presignGet, deleteObject } = require("./storage/r2");
-const { putSession, removeSession } = require("../lib/store");
+const fs = require("fs");
+const path = require("path");
+const { putObject, presignGet, deleteObject } = require("./storage/r2");
 
-function ok(res, data) { res.json(data); }
-function bad(res, code, msg) { res.status(code).json({ error: msg }); }
-
-async function getDoc(req, res) {
-  try {
-    const { docId } = req.params;
-    const meta = readMeta(docId);
-    if (!meta) return bad(res, 404, "Document not found");
-
-    // Hydratuj RAM session (ID = docId)
-    putSession(docId, {
-      id: docId,
-      name: meta.name,
-      pages: new Array(meta.pageCount || 1).fill(""),
-      chunks: meta.chunks || [],
-      fileHash: meta.sha1
-    });
-
-    return ok(res, { sessionId: docId, name: meta.name, pages: meta.pageCount || 1 });
-  } catch (e) {
-    console.error("getDoc error", e);
-    return bad(res, 500, "getDoc failed");
-  }
+const META_DIR = path.join(__dirname, "..", "data", "docs");
+function metaPath(id) { return path.join(META_DIR, `${id}.json`); }
+function readMeta(id) {
+  const p = metaPath(id);
+  if (!fs.existsSync(p)) return null;
+  return JSON.parse(fs.readFileSync(p, "utf8"));
 }
 
-async function fileByDoc(req, res) {
+exports.getDoc = (req, res) => {
+  const id = req.params.docId;
+  const m = readMeta(id);
+  if (!m) return res.status(404).json({ error: "doc not found" });
+  res.json(m);
+};
+
+exports.fileByDoc = async (req, res) => {
   try {
-    const { docId } = req.params;
-    const meta = readMeta(docId);
-    if (!meta) return bad(res, 404, "Document not found");
-    const url = await presignGet(meta.r2Key, 3600);
-    return ok(res, { url });
-  } catch (e) {
-    console.error("fileByDoc error", e);
-    return bad(res, 500, "file url failed");
-  }
-}
+    const id = req.params.docId;
+    const m = readMeta(id);
+    if (!m) return res.status(404).json({ error: "doc not found" });
 
-async function deleteDoc(req, res) {
+    // Pokud ještě není v R2, nahraj (lazy)
+    if (!m.r2Key && m.filePath && fs.existsSync(m.filePath)) {
+      const buf = fs.readFileSync(m.filePath);
+      const key = `${id}${path.extname(m.filePath) || ""}`;
+      await putObject(key, buf, m.mime || "application/octet-stream");
+      m.r2Key = key;
+      fs.writeFileSync(metaPath(id), JSON.stringify(m, null, 2));
+    }
+    const url = await presignGet(m.r2Key);
+    res.json({ url });
+  } catch (e) {
+    console.error("fileByDoc error:", e);
+    res.status(500).json({ error: "presign failed" });
+  }
+};
+
+exports.deleteDoc = async (req, res) => {
+  const id = req.params.docId;
+  const m = readMeta(id);
+  if (!m) return res.status(404).json({ ok: false, error: "not found" });
   try {
-    const { docId } = req.params;
-    const meta = readMeta(docId);
-    if (!meta) return bad(res, 404, "Document not found");
-
-    const header = String(req.get("authorization") || "");
-    const bearer = header.toLowerCase().startsWith("bearer ") ? header.slice(7) : "";
-    const hasManage = process.env.MANAGE_TOKEN && bearer === process.env.MANAGE_TOKEN;
-    const hasWriteKey = req.query.key && req.query.key === meta.writeKey;
-    if (!hasManage && !hasWriteKey) return bad(res, 403, "Forbidden");
-
-    await deleteObject(meta.r2Key);
-    deleteMeta(docId);
-    removeSession(docId);
-    return ok(res, { ok: true });
+    if (m.r2Key) { try { await deleteObject(m.r2Key); } catch (e) { console.warn("R2 delete warn:", e?.message); } }
+    try { fs.unlinkSync(m.filePath); } catch {}
+    try { fs.unlinkSync(metaPath(id)); } catch {}
+    res.json({ ok: true });
   } catch (e) {
-    console.error("deleteDoc error", e);
-    return bad(res, 500, "delete failed");
+    console.error("deleteDoc error:", e);
+    res.status(500).json({ ok: false, error: "delete failed" });
   }
-}
-
-module.exports = { getDoc, fileByDoc, deleteDoc };
+};

@@ -1,9 +1,8 @@
-// public/viewer.js — inline PDF overlay (presigned URL z /api/file/by-doc/:docId)
-import { getFileUrlByDoc } from "./api.js";
-
+// public/viewer.js — inline viewer přes R2 presigned URL
 (function () {
   const overlay = document.getElementById("viewerOverlay");
   const frame   = document.getElementById("viewerFrame");
+  const titleEl = document.getElementById("viewerTitle");
   const nameEl  = document.getElementById("viewerDocName");
   const pageEl  = document.getElementById("viewerPage");
   const openNew = document.getElementById("viewerOpenNew");
@@ -12,18 +11,20 @@ import { getFileUrlByDoc } from "./api.js";
   async function openViewer({ docId, docName, page }) {
     const p = Number(page || 1);
     try {
-      const { url } = await getFileUrlByDoc(docId);
-      const target = `${url}#page=${p}`;
-      frame.src = target;
-      nameEl.textContent = docName || "Dokument";
-      pageEl.textContent = String(p);
-      openNew.href = target;
-
-      overlay.classList.remove("hidden");
-      document.body.style.overflow = "hidden";
-    } catch {
-      alert("Nedaří se otevřít náhled PDF.");
+      const r = await fetch(`/api/file/by-doc/${encodeURIComponent(docId)}`, { cache: "no-store" });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || "presign failed");
+      const url = j.url;
+      frame.src = `${url}#page=${p}`;
+      openNew.href = `${url}#page=${p}`;
+    } catch (e) {
+      frame.srcdoc = `<pre style="padding:16px;color:#ff5c6c">Náhled selhal: ${String(e.message || e)}</pre>`;
+      openNew.removeAttribute("href");
     }
+    nameEl.textContent = docName || "Dokument";
+    pageEl.textContent = String(p);
+    overlay.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
   }
 
   function closeViewer() {
@@ -32,7 +33,6 @@ import { getFileUrlByDoc } from "./api.js";
     frame.src = "about:blank";
   }
 
-  // Citace → otevřít viewer
   document.addEventListener("click", (e) => {
     const cite = e.target.closest?.(".badge.cite");
     if (!cite) return;
@@ -44,7 +44,6 @@ import { getFileUrlByDoc } from "./api.js";
     openViewer({ docId, docName, page });
   });
 
-  // Zavření
   btnClose?.addEventListener("click", closeViewer);
   overlay?.addEventListener("click", (e) => { if (e.target?.dataset?.close === "1") closeViewer(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !overlay.classList.contains("hidden")) closeViewer(); });
