@@ -8,27 +8,38 @@ const mammoth = require("mammoth");
 
 const { ensureSession, putSession, findSessionByFileHash } = require("../lib/store");
 const { chunkPages } = require("../lib/chunker");
-const { saveOriginal } = require("./files");
+const { UPLOAD_DIR, ensureUploadsDir } = require("./files");
 
-function fixFilename(raw) {
+// --- utily ---
+function sanitizeName(name) {
+  return String(name || "document").replace(/[^\w.\-]+/g, "_").slice(0, 120);
+}
+function fixFilenameLatin1(raw) {
   if (!raw) return "document";
   try {
     const repaired = Buffer.from(raw, "latin1").toString("utf8");
     return repaired.includes("�") ? raw : repaired;
   } catch { return raw; }
 }
-function sanitizeName(name) {
-  return String(name || "document").replace(/[^\w.\-]+/g, "_").slice(0, 120);
-}
 
+// --- temp složka pro multer (musí existovat!) ---
+const TMP_DIR = path.join(__dirname, "..", ".tmp");
+try { fs.mkdirSync(TMP_DIR, { recursive: true }); } catch {}
+
+// Ukládáme do .tmp pod „safe“ názvem (bez diakritiky); originální jméno držíme v metadatech
 const uploadMulter = multer({
   storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, path.join(__dirname, "..", ".tmp")),
-    filename: (_req, file, cb) => cb(null, Date.now() + "-" + (file.originalname || "file")),
+    destination: (_req, _file, cb) => cb(null, TMP_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || "").toLowerCase();
+      const rnd = crypto.randomBytes(6).toString("hex");
+      cb(null, `${Date.now()}-${rnd}${ext || ".bin"}`);
+    }
   }),
   limits: { fileSize: 25 * 1024 * 1024 },
 });
 
+// --- parsování na stránky ---
 async function extractPagesFromBuffer(buf, ext) {
   let pageTexts = [];
   if (ext === ".pdf") {
@@ -36,7 +47,7 @@ async function extractPagesFromBuffer(buf, ext) {
     const total = data.numpages || 1;
     if (total > 1) {
       const lines = (data.text || "").split(/\n/);
-      const perPage = Math.ceil(lines.length / total);
+      const perPage = Math.ceil(lines.length / Math.max(total, 1));
       for (let i = 0; i < total; i++) {
         pageTexts.push(lines.slice(i * perPage, (i + 1) * perPage).join("\n").trim());
       }
@@ -58,19 +69,24 @@ async function extractPagesFromBuffer(buf, ext) {
   return pageTexts;
 }
 
+// --- hlavní handler uploadu ---
 async function handleUpload(req, res) {
   try {
     const file = req.file;
-    if (!file) return res.status(400).json({ error: "Soubor chybí (field 'file')." });
+    if (!file || !file.path) return res.status(400).json({ error: "Soubor chybí (field 'file')." });
 
-    const originalRaw = file.originalname || "document";
-    const original = fixFilename(originalRaw);
-    const ext = path.extname(original || file.filename || "").toLowerCase();
+    // originální jméno (UTF-8 opravíme jen pro zobrazení)
+    const original = fixFilenameLatin1(file.originalname || "document");
+    const ext = path.extname(original || "").toLowerCase();
 
+    // načíst z .tmp (ochrana na případ, že soubor mezitím neexistuje)
+    if (!fs.existsSync(file.path)) {
+      return res.status(500).json({ error: "Dočasný soubor nebyl nalezen." });
+    }
     const buf = fs.readFileSync(file.path);
-    const fileHash = crypto.createHash("sha1").update(buf).digest("hex");
 
-    // Dedupe – vrátíme existující session se stejným souborem
+    // deduplikace
+    const fileHash = crypto.createHash("sha1").update(buf).digest("hex");
     const dup = findSessionByFileHash(fileHash);
     if (dup && dup.pages?.length) {
       try { fs.unlinkSync(file.path); } catch {}
@@ -79,16 +95,21 @@ async function handleUpload(req, res) {
         docId: dup.id,
         name: dup.name || original,
         pages: dup.pages.length,
-        duplicateOf: dup.id,
+        duplicateOf: dup.id
       });
     }
 
-    // Extrakce textu
+    // extrakce textu -> chunky
     const pageTexts = await extractPagesFromBuffer(buf, ext);
     const { chunks } = chunkPages(pageTexts, { targetTokens: 1200, overlapChars: 200 });
 
-    // Uložit originál do R2 (fallback disk) + metadata do session
+    // persist originál (pro viewer/R2 část už máš ve svém r2.js/doc.js)
+    ensureUploadsDir();
     const session = ensureSession();
+    const safeBase = sanitizeName(original);
+    const outPath = path.join(UPLOAD_DIR, `${session.id}${ext || ""}`);
+    fs.writeFileSync(outPath, buf);
+
     const mime =
       file.mimetype ||
       (ext === ".pdf" ? "application/pdf" :
@@ -96,37 +117,27 @@ async function handleUpload(req, res) {
        ext === ".txt" ? "text/plain" :
        ext === ".md" ? "text/markdown" : "application/octet-stream");
 
-    const saved = await saveOriginal(buf, {
-      sessionId: session.id,
-      ext,
-      mime,
-    });
-
-    const safeName = sanitizeName(original);
-
     putSession(session.id, {
       id: session.id,
       createdAt: Date.now(),
-      name: original,
-      filename: safeName,
+      name: original,         // zobrazované jméno
+      filename: safeBase,     // safe base name
+      filePath: outPath,      // lokální kopie (pro případný fallback)
       fileHash,
       hasPdf: ext === ".pdf",
       mime,
       pages: pageTexts,
-      chunks,
-      // storage info
-      filePath: saved.path || null,
-      fileKey: saved.key || null,
-      storage: saved.storage,
+      chunks
     });
 
+    // uklid dočasného souboru
     try { fs.unlinkSync(file.path); } catch {}
 
     res.json({
       sessionId: session.id,
       docId: session.id,
       name: original,
-      pages: pageTexts.length,
+      pages: pageTexts.length
     });
   } catch (e) {
     console.error("UPLOAD ERROR:", e);
