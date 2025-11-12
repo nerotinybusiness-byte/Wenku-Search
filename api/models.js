@@ -1,11 +1,11 @@
-// /api/core.js
+// /api/models.js
 // Jednotná abstrakce pro dotazy na různé modely (Gemini / OpenAI / local)
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const WENKU_MODEL = process.env.WENKU_MODEL || "local";
 
-// Node 18+ má global fetch, tady jen sanity check:
+// Node 18+ má global fetch; v Node 22 (Render) je k dispozici.
 if (typeof fetch !== "function") {
   throw new Error("Global fetch is not available – use Node 18+ / 20+ / 22+.");
 }
