@@ -1,37 +1,84 @@
 // api/storage/r2.js
-const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+// Cloudflare R2 (S3 kompatibilní) – upload, presign GET, delete
+
+const {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  GetObjectCommand,
+} = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
-const endpoint = process.env.R2_ENDPOINT;                 // https://<accountid>.r2.cloudflarestorage.com
-const bucket   = process.env.R2_BUCKET;
-const accessKeyId     = process.env.R2_ACCESS_KEY_ID;
-const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+const ACCOUNT_ID        = process.env.R2_ACCOUNT_ID || "";
+const ACCESS_KEY_ID     = process.env.R2_ACCESS_KEY_ID || "";
+const SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || "";
+const BUCKET            = process.env.R2_BUCKET || "";
+// např.: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+const ENDPOINT          = (process.env.R2_ENDPOINT || "").replace(/\/+$/, "");
 
-if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
-  console.warn("[r2] Missing required env vars (R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY).");
+if (!ACCOUNT_ID || !ACCESS_KEY_ID || !SECRET_ACCESS_KEY || !BUCKET || !ENDPOINT) {
+  console.warn("[r2] Missing R2_* envs – R2 features will fail until set.");
 }
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint,
-  forcePathStyle: true,
-  credentials: { accessKeyId, secretAccessKey },
-});
+const s3 = (ACCOUNT_ID && ACCESS_KEY_ID && SECRET_ACCESS_KEY && BUCKET && ENDPOINT)
+  ? new S3Client({
+      region: "auto",
+      endpoint: ENDPOINT,
+      credentials: {
+        accessKeyId: ACCESS_KEY_ID,
+        secretAccessKey: SECRET_ACCESS_KEY,
+      },
+    })
+  : null;
 
-async function putObject(key, body, contentType) {
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
+async function putObject(key, body, contentType = "application/octet-stream") {
+  if (!s3) throw new Error("R2 not configured");
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    })
+  );
   return { key };
 }
-async function presignGet(key, expiresIn = 3600) {
-  const url = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn });
-  return url;
-}
-async function headObject(key) {
-  try { return await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key })); }
-  catch (e) { if (e.$metadata?.httpStatusCode === 404) return null; throw e; }
-}
+
 async function deleteObject(key) {
-  await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  if (!s3) return;
+  await s3.send(
+    new DeleteObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    })
+  );
 }
 
-module.exports = { putObject, presignGet, headObject, deleteObject, bucket };
+async function presignGet(key, expiresSec = 3600) {
+  if (!s3) throw new Error("R2 not configured");
+
+  // optional: ověření existence, ale ignorujeme případný 404
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
+  } catch (_) {
+    // pokud neexistuje, stejně to getSignedUrl zkusíme – server pak vrátí 404
+  }
+
+  const url = await getSignedUrl(
+    s3,
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+    }),
+    { expiresIn: expiresSec }
+  );
+
+  return url;
+}
+
+module.exports = {
+  putObject,
+  deleteObject,
+  presignGet,
+};
