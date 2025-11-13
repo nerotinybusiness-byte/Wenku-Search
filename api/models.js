@@ -12,14 +12,30 @@ if (typeof fetch !== "function") {
 
 /**
  * Vygeneruje prompt pro QA nad dokumentem.
- * ctx = [{ page, text, score }, ...]
+ * ctx = [{ page, pageStart?, text, excerpt?, score }, ...]
+ *
+ * DŮLEŽITÉ:
+ * - používáme delší snippet (~2400 znaků), aby se do kontextu vešla i informace,
+ *   která je níž na stránce (typicky adresa skladu apod.).
+ * - pokud existuje c.excerpt (do budoucna), použijeme ho; jinak c.text.
  */
 function buildPrompt(question, ctx) {
+  const MAX_CTX = 6;           // max počet úseků
+  const MAX_SNIPPET = 2400;    // délka úseku v znacích
+
   const contextText = (ctx || [])
-    .slice(0, 6)
+    .slice(0, MAX_CTX)
     .map((c, idx) => {
-      const page = Number.isFinite(c.page) ? c.page : "?";
-      const snippet = (c.text || "").replace(/\s+/g, " ").slice(0, 800);
+      const page =
+        Number.isFinite(c.page)      ? c.page :
+        Number.isFinite(c.pageStart) ? c.pageStart :
+        "?";
+
+      const src = (c.excerpt || c.text || "");
+      const snippet = src
+        .replace(/\s+/g, " ")
+        .slice(0, MAX_SNIPPET);
+
       return `[#${idx + 1}, page ${page}] ${snippet}`;
     })
     .join("\n\n");
@@ -76,9 +92,15 @@ async function askWithModel(model, question, ctx) {
 
 function answerLocal(question, ctx) {
   const pages = (ctx || [])
-    .map(c => Number.isFinite(c.page) ? c.page : null)
+    .map(c =>
+      Number.isFinite(c.page)      ? c.page :
+      Number.isFinite(c.pageStart) ? c.pageStart :
+      null
+    )
     .filter(p => p !== null);
-  const pageInfo = pages.length ? ` (context pages: ${[...new Set(pages)].join(", ")})` : "";
+  const pageInfo = pages.length
+    ? ` (context pages: ${[...new Set(pages)].join(", ")})`
+    : "";
   return `Model: local. Demo odpověď na otázku: "${question}".${pageInfo}`;
 }
 
@@ -170,7 +192,9 @@ async function answerOpenAI(model, question, ctx) {
 
   const data = await resp.json();
   const choice = data.choices && data.choices[0];
-  const text = (choice && choice.message && choice.message.content) || "OpenAI returned no text.";
+  const text =
+    (choice && choice.message && choice.message.content) ||
+    "OpenAI returned no text.";
   return text.trim();
 }
 
