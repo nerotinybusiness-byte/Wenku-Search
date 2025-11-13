@@ -5,8 +5,7 @@
   "main": "api/server.js",
   "scripts": {
     "start": "node api/server.js",
-    "dev": "node -r dotenv/config api/server.js",
-    "build:core": "node scripts/core-build.js"
+    "dev": "node -r dotenv/config api/server.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.930.0",
