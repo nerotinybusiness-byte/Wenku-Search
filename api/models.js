@@ -11,31 +11,64 @@ if (typeof fetch !== "function") {
 }
 
 /**
+ * Udělá snippet z chunku tak, aby byl co nejblíž slovům z dotazu.
+ * - question: původní dotaz uživatele
+ * - fullText: celý text chunku (typicky 1 stránka)
+ * - span: délka výřezu (v znacích)
+ */
+function makeSnippet(question, fullText, span = 900) {
+  const text = String(fullText || "").replace(/\s+/g, " ").trim();
+  if (!text) return "(no context)";
+
+  const q = String(question || "").toLowerCase();
+
+  // vezmeme jen "rozumná" slova z dotazu (délka > 3, bez bordelu)
+  const words = q
+    .split(/\s+/g)
+    .map(w => w.replace(/[^a-zá-ž0-9]/gi, ""))
+    .filter(w => w.length > 3);
+
+  let pos = -1;
+  const lower = text.toLowerCase();
+
+  for (const w of words) {
+    const p = lower.indexOf(w);
+    if (p >= 0) {
+      pos = p;
+      break;
+    }
+  }
+
+  // když jsme nic nenašli, vem prostě začátek, ale delší než dřív
+  if (pos < 0) {
+    return text.slice(0, span).trim();
+  }
+
+  const half = Math.floor(span / 2);
+  let start = Math.max(0, pos - half);
+  let end = Math.min(text.length, start + span);
+
+  // když jsme moc u konce, snaž se okno posunout zpátky
+  if (end - start < span && start > 0) {
+    start = Math.max(0, end - span);
+  }
+
+  let snippet = text.slice(start, end).trim();
+  if (start > 0) snippet = "…" + snippet;
+  if (end < text.length) snippet = snippet + "…";
+  return snippet;
+}
+
+/**
  * Vygeneruje prompt pro QA nad dokumentem.
- * ctx = [{ page, pageStart?, text, excerpt?, score }, ...]
- *
- * DŮLEŽITÉ:
- * - používáme delší snippet (~2400 znaků), aby se do kontextu vešla i informace,
- *   která je níž na stránce (typicky adresa skladu apod.).
- * - pokud existuje c.excerpt (do budoucna), použijeme ho; jinak c.text.
+ * ctx = [{ page, text, score }, ...]
  */
 function buildPrompt(question, ctx) {
-  const MAX_CTX = 6;           // max počet úseků
-  const MAX_SNIPPET = 2400;    // délka úseku v znacích
-
   const contextText = (ctx || [])
-    .slice(0, MAX_CTX)
+    .slice(0, 6)
     .map((c, idx) => {
-      const page =
-        Number.isFinite(c.page)      ? c.page :
-        Number.isFinite(c.pageStart) ? c.pageStart :
-        "?";
-
-      const src = (c.excerpt || c.text || "");
-      const snippet = src
-        .replace(/\s+/g, " ")
-        .slice(0, MAX_SNIPPET);
-
+      const page = Number.isFinite(c.page) ? c.page : "?";
+      const snippet = makeSnippet(question, c.text || "", 900);
       return `[#${idx + 1}, page ${page}] ${snippet}`;
     })
     .join("\n\n");
@@ -92,15 +125,9 @@ async function askWithModel(model, question, ctx) {
 
 function answerLocal(question, ctx) {
   const pages = (ctx || [])
-    .map(c =>
-      Number.isFinite(c.page)      ? c.page :
-      Number.isFinite(c.pageStart) ? c.pageStart :
-      null
-    )
+    .map(c => Number.isFinite(c.page) ? c.page : null)
     .filter(p => p !== null);
-  const pageInfo = pages.length
-    ? ` (context pages: ${[...new Set(pages)].join(", ")})`
-    : "";
+  const pageInfo = pages.length ? ` (context pages: ${[...new Set(pages)].join(", ")})` : "";
   return `Model: local. Demo odpověď na otázku: "${question}".${pageInfo}`;
 }
 
@@ -192,9 +219,7 @@ async function answerOpenAI(model, question, ctx) {
 
   const data = await resp.json();
   const choice = data.choices && data.choices[0];
-  const text =
-    (choice && choice.message && choice.message.content) ||
-    "OpenAI returned no text.";
+  const text = (choice && choice.message && choice.message.content) || "OpenAI returned no text.";
   return text.trim();
 }
 
