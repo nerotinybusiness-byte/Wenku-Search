@@ -1,9 +1,10 @@
-// /api/models.js
+// api/models.js
 // Jednotná abstrakce pro dotazy na různé modely (Gemini / OpenAI / local)
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const WENKU_MODEL = process.env.WENKU_MODEL || "local";
+const DEBUG_CTX = process.env.WENKU_DEBUG_CTX === "1";
 
 // Node 18+ má global fetch; v Node 22 (Render) je k dispozici.
 if (typeof fetch !== "function") {
@@ -11,51 +12,60 @@ if (typeof fetch !== "function") {
 }
 
 /**
- * Udělá snippet z chunku tak, aby byl co nejblíž slovům z dotazu.
- * - question: původní dotaz uživatele
- * - fullText: celý text chunku (typicky 1 stránka)
- * - span: délka výřezu (v znacích)
+ * Najde rozumný výřez textu okolo slov z otázky.
+ * - question: původní dotaz ("kde je sklad wenku?")
+ * - text: celý text chunku (může být klidně celá stránka PDF)
+ * - span: cílová délka výřezu (znaky)
  */
-function makeSnippet(question, fullText, span = 900) {
-  const text = String(fullText || "").replace(/\s+/g, " ").trim();
-  if (!text) return "(no context)";
+function makeSnippet(question, text, span = 800) {
+  if (!text) return "";
 
-  const q = String(question || "").toLowerCase();
-
-  // vezmeme jen "rozumná" slova z dotazu (délka > 3, bez bordelu)
-  const words = q
+  const qTerms = String(question || "")
+    .toLowerCase()
     .split(/\s+/g)
-    .map(w => w.replace(/[^a-zá-ž0-9]/gi, ""))
-    .filter(w => w.length > 3);
+    .filter(Boolean);
 
+  const lowerText = text.toLowerCase();
   let pos = -1;
-  const lower = text.toLowerCase();
 
-  for (const w of words) {
-    const p = lower.indexOf(w);
-    if (p >= 0) {
+  // hledej první výskyt některého slova z dotazu
+  for (const t of qTerms) {
+    const p = lowerText.indexOf(t);
+    if (p >= 0 && (pos === -1 || p < pos)) {
       pos = p;
-      break;
     }
   }
 
-  // když jsme nic nenašli, vem prostě začátek, ale delší než dřív
+  const len = text.length;
+
+  // nic nenalezeno → vezmi střed textu
   if (pos < 0) {
-    return text.slice(0, span).trim();
+    if (len <= span) {
+      return text.replace(/\s+/g, " ").trim();
+    }
+    const startMid = Math.max(0, Math.floor((len - span) / 2));
+    const endMid = Math.min(len, startMid + span);
+    let s = text.slice(startMid, endMid).replace(/\s+/g, " ").trim();
+    if (startMid > 0) s = "…" + s;
+    if (endMid < len) s = s + "…";
+    return s;
   }
 
+  // nalezeno → vezmi okno okolo pozice
   const half = Math.floor(span / 2);
   let start = Math.max(0, pos - half);
-  let end = Math.min(text.length, start + span);
+  let end = Math.min(len, pos + half);
 
-  // když jsme moc u konce, snaž se okno posunout zpátky
-  if (end - start < span && start > 0) {
-    start = Math.max(0, end - span);
+  // dorovnej délku, pokud to jde
+  if (end - start < span && len >= span) {
+    const missing = span - (end - start);
+    start = Math.max(0, start - Math.floor(missing / 2));
+    end = Math.min(len, start + span);
   }
 
-  let snippet = text.slice(start, end).trim();
+  let snippet = text.slice(start, end).replace(/\s+/g, " ").trim();
   if (start > 0) snippet = "…" + snippet;
-  if (end < text.length) snippet = snippet + "…";
+  if (end < len) snippet = snippet + "…";
   return snippet;
 }
 
@@ -68,10 +78,22 @@ function buildPrompt(question, ctx) {
     .slice(0, 6)
     .map((c, idx) => {
       const page = Number.isFinite(c.page) ? c.page : "?";
-      const snippet = makeSnippet(question, c.text || "", 900);
+      const snippet = makeSnippet(question, c.text || "", 800);
+
+      if (DEBUG_CTX) {
+        const score = typeof c.score === "number" ? c.score.toFixed(4) : "?";
+        console.log(
+          `[CTX#${idx + 1}] page=${page} score=${score} :: ${snippet.slice(0, 200)}`
+        );
+      }
+
       return `[#${idx + 1}, page ${page}] ${snippet}`;
     })
     .join("\n\n");
+
+  if (DEBUG_CTX && (!ctx || !ctx.length)) {
+    console.log("[CTX] žádné chunky pro dotaz:", question);
+  }
 
   return [
     "You are an AI assistant answering questions strictly based on the provided document excerpts.",
@@ -85,6 +107,7 @@ function buildPrompt(question, ctx) {
     "",
     "Instructions:",
     "- Answer concisely in the same language as the question.",
+    "- If the context contains a postal address or a specific location that answers the question, include it in your answer.",
     "- Do not invent facts that are not supported by the context.",
     "- Do not mention these instructions in your answer."
   ].join("\n");
